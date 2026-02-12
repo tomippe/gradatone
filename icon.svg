@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Gradient background matching app gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:hsl(240, 60%, 20%);stop-opacity:1" />
+      <stop offset="25%" style="stop-color:hsl(280, 50%, 30%);stop-opacity:1" />
+      <stop offset="50%" style="stop-color:hsl(320, 55%, 35%);stop-opacity:1" />
+      <stop offset="75%" style="stop-color:hsl(0, 50%, 40%);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:hsl(40, 60%, 45%);stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="512" height="512" fill="url(#bgGradient)" rx="80"/>
+  
+  <!-- Musical note (eighth note) -->
+  <g filter="url(#shadow)">
+    <!-- Note head (oval) -->
+    <ellipse cx="220" cy="340" rx="50" ry="40" fill="white" transform="rotate(-20 220 340)"/>
+    
+    <!-- Note stem -->
+    <rect x="265" y="180" width="18" height="165" fill="white" rx="9"/>
+    
+    <!-- Note flag (curved) -->
+    <path d="M 283 180 Q 340 160, 360 200 Q 340 210, 283 220 Z" fill="white"/>
+  </g>
+</svg>

@@ -1,0 +1,623 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Pacifico&display=swap");
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --bg-dark: #0f0f23;
+  --bg-card: rgba(255, 255, 255, 0.05);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --accent: #eacb66;
+  --accent-glow: rgba(102, 126, 234, 0.4);
+}
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh; /* Fallback for older browsers */
+  height: 100dvh; /* Dynamic viewport height for iOS/iPadOS */
+  position: fixed;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.title-overlay {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: z-index 0.3s ease 1s;
+}
+html:has(.blur-overlay.hidden) .title-overlay {
+  z-index: 1;
+}
+.title-overlay h1 {
+  font-family: "Pacifico", cursive;
+  font-size: clamp(4rem, 12vw, 8rem);
+  font-weight: 400;
+  color: #ffffff;
+  opacity: 0.1;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Portrait: title at top (below controls) */
+body.portrait .title-overlay {
+  top: 4rem;
+  bottom: auto;
+}
+body.portrait .title-overlay h1 {
+  font-size: clamp(5rem, 14vw, 10rem);
+}
+
+/* Landscape: title at bottom (above pitch labels) */
+body.landscape .title-overlay {
+  top: auto;
+  bottom: 6rem;
+}
+
+.logo-overlay {
+  filter: brightness(0) invert(1);
+  height: 2rem;
+  width: auto;
+  margin-top: -0.2em;
+}
+
+.instrument-wrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.blur-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: 50;
+  pointer-events: none;
+  transition: opacity 2s ease-out, backdrop-filter 2s ease-out;
+  opacity: 1;
+}
+
+.blur-overlay.hidden {
+  opacity: 0;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+}
+
+#canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+/* Landscape gradient */
+.container:not(.portrait) #canvas {
+  background: linear-gradient(to right, hsl(240, 60%, 20%) 0%, hsl(280, 50%, 30%) 25%, hsl(320, 55%, 35%) 50%, hsl(0, 50%, 40%) 75%, hsl(40, 60%, 45%) 100%);
+}
+
+/* Portrait gradient (inverted: yellow at top) */
+.container.portrait #canvas {
+  background: linear-gradient(to bottom, hsl(40, 60%, 45%) 0%, hsl(0, 50%, 40%) 25%, hsl(320, 55%, 35%) 50%, hsl(280, 50%, 30%) 75%, hsl(240, 60%, 20%) 100%);
+}
+
+.pitch-labels {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.pitch-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.875rem, 2vw, 1.25rem);
+  font-weight: 600;
+  color: var(--text-primary);
+  border-radius: 8px;
+  opacity: 0.5;
+  pointer-events: none;
+  position: absolute;
+  padding: 0;
+  clip-path: none;
+}
+.pitch-label sup {
+  font-size: 0.7em;
+  vertical-align: super;
+  line-height: 0;
+  position: relative;
+  top: -0.3em;
+}
+
+.pitch-label-full {
+  font-size: clamp(0.7rem, 1.6vw, 1rem);
+}
+
+/* Svara (Indian notation) - Komal (flat) with underline */
+.komal {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+/* Svara (Indian notation) - Tivra (sharp) with overline */
+.tivra {
+  text-decoration: overline;
+  text-decoration-thickness: 2px;
+}
+
+/* Landscape mode - bottom position */
+.pitch-labels.landscape .label-bottom {
+  bottom: 0.5rem;
+  left: 0;
+  transform: translateX(-50%);
+}
+
+/* Landscape mode - top position */
+.pitch-labels.landscape .label-top {
+  top: 0.5rem;
+  left: 0;
+  transform: translateX(-50%);
+}
+
+/* Portrait mode - right position */
+.pitch-labels.portrait .label-right {
+  left: calc(100% - 1.6rem);
+  top: 0;
+  transform: translate(0, -50%);
+  text-align: left;
+}
+
+/* Portrait mode - left position */
+.pitch-labels.portrait .label-left {
+  left: 0.5rem;
+  top: 0;
+  transform: translate(0, -50%);
+  text-align: left;
+}
+
+.start-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 180px;
+  height: 180px;
+  font-size: 2.25rem;
+  font-weight: 400;
+  color: white;
+  background: rgba(102, 126, 234, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition: all 2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+  font-family: "Pacifico", cursive;
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.start-button:hover {
+  transform: translate(-50%, -50%) scale(1.05);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+}
+
+.start-button:active {
+  transform: translate(-50%, -50%) scale(0.98);
+}
+
+.start-button.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(1.5);
+}
+
+/* Touch feedback */
+.touch-indicator {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 70%);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: left 0.05s ease-out, top 0.05s ease-out;
+  z-index: 50;
+}
+
+@keyframes pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+/* Instrument Controls */
+.instrument-controls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 8;
+  overflow: hidden;
+}
+
+.instrument-control {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: auto;
+}
+
+/* Landscape: controls on right side */
+.container.landscape .instrument-control {
+  flex-direction: row;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Portrait: controls on bottom */
+.container.portrait .instrument-control {
+  flex-direction: column;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.instrument-select {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: var(--text-primary);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  font-family: "Inter", sans-serif;
+  cursor: pointer;
+  outline: none;
+  min-width: 100px;
+  box-sizing: border-box;
+}
+.instrument-select option {
+  background: var(--bg-dark);
+  color: var(--text-primary);
+}
+.instrument-select option[value=__delete__] {
+  color: #ff6666;
+}
+.instrument-select option:disabled {
+  color: rgba(255, 255, 255, 0.3);
+}
+.instrument-select:hover {
+  background: rgba(0, 0, 0, 0.75);
+  border-color: var(--accent);
+}
+.instrument-select:focus {
+  border-color: var(--accent);
+}
+
+/* Landscape: fixed width for select */
+.container.landscape .instrument-select {
+  width: 8em;
+  min-width: 8em;
+}
+
+/* Settings Toggle Button */
+.settings-toggle {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 11;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  pointer-events: auto;
+  padding: 0;
+}
+.settings-toggle svg {
+  color: white;
+  transition: transform 0.3s ease;
+}
+.settings-toggle:hover {
+  background: rgba(0, 0, 0, 0.75);
+  border-color: var(--accent);
+}
+.settings-toggle:hover svg {
+  transform: rotate(90deg);
+}
+.settings-toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Controls Container */
+.controls-container {
+  position: absolute;
+  top: 1.5rem;
+  right: 4.5rem; /* Make room for settings button */
+  margin-left: 0.75rem;
+  z-index: 10;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap; /* Allow wrapping to multiple rows */
+  gap: 0; /* No gap - using margin-right on control groups instead */
+  row-gap: 0.5rem; /* Gap between rows when wrapped */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(20px);
+  transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+}
+.controls-container.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+.control-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Transpose Control */
+.transpose-control {
+  display: flex;
+  align-items: center;
+  margin-right: 1rem; /* Space after this control group */
+}
+
+.transpose-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem; /* Tight space between label and control */
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Common select styles */
+.transpose-select,
+.scale-select,
+.label-select,
+.snap-select {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: "Inter", sans-serif;
+  cursor: pointer;
+  outline: none;
+  text-align: center;
+  padding: 0 0.5rem;
+}
+.transpose-select option,
+.scale-select option,
+.label-select option,
+.snap-select option {
+  background: var(--bg-dark);
+  color: var(--text-primary);
+}
+.transpose-select:hover,
+.scale-select:hover,
+.label-select:hover,
+.snap-select:hover {
+  background: rgba(0, 0, 0, 0.75);
+  border-color: var(--accent);
+}
+.transpose-select:focus,
+.scale-select:focus,
+.label-select:focus,
+.snap-select:focus {
+  border-color: var(--accent);
+}
+
+/* Control groups */
+.scale-control,
+.label-control,
+.snap-control {
+  display: flex;
+  align-items: center;
+}
+
+.scale-control,
+.label-control {
+  margin-right: 1rem;
+}
+
+/* Control labels */
+.scale-label,
+.label-label,
+.snap-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Responsive adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  body.portrait .title-overlay h1 {
+    font-size: 3rem;
+  }
+  body.landscape .title-overlay {
+    bottom: 4rem;
+  }
+  body.landscape .title-overlay h1 {
+    font-size: 3rem;
+  }
+  body.landscape .logo-overlay {
+    height: 1.5rem;
+  }
+  .settings-toggle {
+    top: 1rem;
+    right: 1rem;
+    width: 36px;
+    height: 36px;
+  }
+  .settings-toggle svg {
+    width: 18px;
+    height: 18px;
+  }
+  .controls-container {
+    top: 1rem;
+    right: 4rem;
+  }
+}
+@media (max-width: 768px) {
+  body.portrait .title-overlay {
+    top: 3.5rem;
+  }
+  body.portrait .title-overlay h1 {
+    font-size: clamp(4rem, 12vw, 8rem);
+  }
+  body.portrait .logo-overlay {
+    height: 1.75rem;
+  }
+  body.landscape .title-overlay {
+    bottom: 5rem;
+  }
+  body.landscape .title-overlay h1 {
+    font-size: clamp(3rem, 10vw, 6rem);
+  }
+  body.landscape .logo-overlay {
+    height: 1.75rem;
+  }
+  .settings-toggle {
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 36px;
+    height: 36px;
+  }
+  .settings-toggle svg {
+    width: 18px;
+    height: 18px;
+  }
+  .controls-container {
+    top: 0.75rem;
+    right: 3.75rem;
+    gap: 0; /* No gap - using margin-right on control groups */
+    row-gap: 0.4rem; /* Gap between rows when wrapped */
+  }
+  .control-text {
+    font-size: 0.8rem;
+  }
+  .transpose-control,
+  .scale-control,
+  .label-control {
+    margin-right: 0.7rem; /* Space between control groups */
+  }
+  .transpose-label,
+  .scale-label,
+  .label-label,
+  .snap-label {
+    gap: 0.3rem; /* Tight space between label and control */
+  }
+  .transpose-select,
+  .scale-select,
+  .label-select,
+  .snap-select {
+    font-size: 0.75rem;
+  }
+  .instrument-select {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.6rem;
+    min-width: 90px;
+  }
+}
+/* Extra compact for portrait mobile */
+@media (max-width: 768px) and (orientation: portrait) {
+  body.portrait .title-overlay {
+    top: 3rem;
+  }
+  body.portrait .logo-overlay {
+    height: 1.5rem;
+  }
+  .settings-toggle {
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 32px;
+    height: 32px;
+  }
+  .settings-toggle svg {
+    width: 16px;
+    height: 16px;
+  }
+  .controls-container {
+    gap: 0; /* No gap - using margin-right on control groups */
+    row-gap: 0.3rem; /* Gap between rows when wrapped */
+    top: 0.5rem;
+    right: 3.25rem;
+  }
+  .control-text {
+    font-size: 0.75rem;
+  }
+  .transpose-control,
+  .scale-control,
+  .label-control {
+    margin-right: 0.5rem; /* Space between control groups */
+  }
+  .transpose-label,
+  .scale-label,
+  .label-label,
+  .snap-label {
+    gap: 0.25rem; /* Very tight space between label and control */
+  }
+  .transpose-select,
+  .scale-select,
+  .label-select,
+  .snap-select {
+    font-size: 0.7rem;
+  }
+}
