@@ -14,6 +14,7 @@ DEPLOY_DIR="../apps.tomippe.jp/gradatone"
 source "$SCRIPT_DIR/../build-common/version.sh"
 source "$SCRIPT_DIR/../build-common/ftp-upload.sh"
 source "$SCRIPT_DIR/../build-common/dev-server.sh"
+source "$SCRIPT_DIR/../build-common/git-commit.sh"
 
 # バージョン読み込み
 VERSION=$(version_read)
@@ -77,6 +78,9 @@ ftp_upload_dir "$DEPLOY_DIR" "gradatone"
 echo ""
 echo "📝 次回用バージョンを更新しています..."
 version_save_next "$VERSION"
+
+# Git コミット
+git_commit_build "$VERSION"
 
 # 開発サーバーの再起動
 dev_server_restart $DEV_PORT "python3 -m http.server $DEV_PORT"
