@@ -1641,20 +1641,39 @@ class Gradatone {
         });
 
         // Scale select - prevent touch/click propagation
-        this.scaleSelect.addEventListener('touchstart', (e) => {
-            e.stopPropagation();
-        }, { passive: true });
+        if (this.scaleSelect) {
+            this.scaleSelect.addEventListener('touchstart', (e) => {
+                e.stopPropagation();
+            }, { passive: true });
 
-        this.scaleSelect.addEventListener('change', (e) => {
-            e.stopPropagation(); // Prevent canvas click event
-            this.currentScale = e.target.value;
-            this.saveScaleSettings();
-            // Redraw canvas and regenerate pitch labels
-            this.drawGuideLines();
-            this.setupPitchLabels();
-            // Update transpose options to show correct root note based on scale
-            this.updateTransposeOptions();
-        });
+            this.scaleSelect.addEventListener('change', (e) => {
+                e.stopPropagation(); // Prevent canvas click event
+                this.currentScale = e.target.value;
+                this.saveScaleSettings();
+                // Redraw canvas and regenerate pitch labels
+                this.drawGuideLines();
+                this.setupPitchLabels();
+                // Update transpose options to show correct root note based on scale
+                this.updateTransposeOptions();
+            });
+        }
+
+        // Minor toggle (replacement UI for the legacy scale select)
+        const minorToggle = document.getElementById('minorToggle');
+        if (minorToggle) {
+            minorToggle.checked = this.currentScale === 'minor';
+            minorToggle.addEventListener('touchstart', (e) => {
+                e.stopPropagation();
+            }, { passive: true });
+            minorToggle.addEventListener('change', (e) => {
+                e.stopPropagation();
+                this.currentScale = e.target.checked ? 'minor' : 'major';
+                this.saveScaleSettings();
+                this.drawGuideLines();
+                this.setupPitchLabels();
+                this.updateTransposeOptions();
+            });
+        }
 
         // Label select - prevent touch/click propagation
         this.labelSelect.addEventListener('touchstart', (e) => {
