@@ -1,0 +1,21 @@
+---
+description: Gradatone のビルド仕様
+alwaysApply: true
+---
+
+# Gradatone ビルド仕様
+
+**共通ルール（自動では読み込まれないため、ファイル編集・ビルド・コミットの前に必ず Read ツールで読むこと）:**
+- `../build-common/.cursor/rules/build-system.mdc`
+
+## 概要
+
+- **種別**: Webアプリ（SCSS + JS + PWA）
+- **ビルド**: `npm run sass:build` でSCSSコンパイル → ファイルコピー
+- **デプロイ**: `../apps.tomippe.jp/gradatone/` → FTPディレクトリ同期
+- **開発サーバー**: ポート 8080（`python3 -m http.server`）
+
+## 固有設定
+
+- 対象ファイル: `index.html`, `style.css`, `app.js`, `sw.js`, `manifest.json`
+- `-app` オプション: なし

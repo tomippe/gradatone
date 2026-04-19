@@ -1615,13 +1615,16 @@ class Gradatone {
             }
         });
 
-        // Monitor visibility changes to handle app suspend/resume
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && this.audioContext && this.audioContext.state === 'suspended') {
-                // App became visible and audio is suspended - show power button
-                this.showPowerButton();
-            }
-        });
+        // Auto-recover audio when returning from task switch / BFCache / window focus
+        const handleVisibleAgain = () => {
+            if (document.hidden) return;
+            if (!this.audioContext) return;
+            this.tryAutoResumeOnVisible();
+        };
+
+        document.addEventListener('visibilitychange', handleVisibleAgain);
+        window.addEventListener('pageshow', handleVisibleAgain);
+        window.addEventListener('focus', handleVisibleAgain);
 
         // Transpose select - prevent touch/click propagation
         this.transposeSelect.addEventListener('touchstart', (e) => {
@@ -1975,6 +1978,27 @@ class Gradatone {
                 alert('Audio is suspended. Please check your device volume and mute settings.');
             }
         }, 500);
+    }
+
+    async tryAutoResumeOnVisible() {
+        if (!this.audioContext) return;
+        if (this.audioContext.state === 'running') {
+            this.hidePowerButton();
+            return;
+        }
+        try {
+            await this.audioContext.resume();
+        } catch (e) {
+            // Interrupted sessions (phone call, Siri, etc.) may reject without a gesture
+        }
+        setTimeout(() => {
+            if (!this.audioContext) return;
+            if (this.audioContext.state === 'running') {
+                this.hidePowerButton();
+            } else {
+                this.showPowerButton();
+            }
+        }, 200);
     }
 
     showPowerButton() {
