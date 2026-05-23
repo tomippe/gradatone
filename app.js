@@ -763,25 +763,39 @@ async function enableIosSilentBypassAudio({ create = false } = {}) {
     }
 }
 
+let nativeAudioSessionConfigured = false;
+
 /** ネイティブ AVAudioSession + Web プロセス側の playback 化（消音スイッチ対策） */
-async function configureNativeAudioSession({ userGesture = false } = {}) {
+async function configureNativeAudioSession({ userGesture = false, force = false } = {}) {
     if (!isNativeCapacitor()) return;
     setNavigatorAudioSessionPlayback();
+
+    const needsFullSetup = force || !nativeAudioSessionConfigured;
+    if (!needsFullSetup) {
+        if (userGesture) {
+            await enableIosSilentBypassAudio({ create: false });
+        }
+        return;
+    }
+
     try {
         const plugin = getGradatoneAudioSessionPlugin();
         if (plugin && typeof plugin.configure === 'function') {
             await plugin.configure();
-            await new Promise((r) => setTimeout(r, 0));
-            await plugin.configure();
+            if (!nativeAudioSessionConfigured) {
+                await new Promise((r) => setTimeout(r, 0));
+                await plugin.configure();
+            }
         }
     } catch (e) {
         console.warn('GradatoneAudioSession configure:', e);
     }
     if (userGesture) {
-        await enableIosSilentBypassAudio({ create: true });
+        await enableIosSilentBypassAudio({ create: !nativeAudioSessionConfigured });
     } else {
         await enableIosSilentBypassAudio({ create: false });
     }
+    nativeAudioSessionConfigured = true;
 }
 
 /** 離した瞬間の画面速度（px/s）。windowStart〜windowEnd ms 前の区間を区間平均（合計変位÷合計時間） */
@@ -845,7 +859,7 @@ class Gradatone {
         this.cancelledTouchIds = new Set(); // touchend が touchstart(非同期) より先に来た ID
         this.pendingStartTouchIds = new Set(); // 音生成待ち（iOS 高速連打で欠落しないよう）
         this.deferredTouchEnds = new Map(); // 音生成前に離れたタッチ → 生成直後に stop
-        this._touchStartChain = Promise.resolve();
+        this._audioReadyInFlight = null;
         this.canvas = document.getElementById('canvas');
         this.ctx = this.canvas.getContext('2d');
         this.startButton = document.getElementById('startButton');
@@ -2317,7 +2331,27 @@ class Gradatone {
     }
 
     async ensureAudioReady({ fromUserGesture = false, fromBFCache = false } = {}) {
-        await configureNativeAudioSession({ userGesture: fromUserGesture });
+        if (!fromBFCache && this.isAudioRunning()) {
+            return true;
+        }
+
+        if (this._audioReadyInFlight) {
+            return this._audioReadyInFlight;
+        }
+
+        this._audioReadyInFlight = this._ensureAudioReadySlow({ fromUserGesture, fromBFCache }).finally(
+            () => {
+                this._audioReadyInFlight = null;
+            }
+        );
+        return this._audioReadyInFlight;
+    }
+
+    async _ensureAudioReadySlow({ fromUserGesture = false, fromBFCache = false } = {}) {
+        await configureNativeAudioSession({
+            userGesture: fromUserGesture,
+            force: fromBFCache
+        });
 
         if (fromBFCache && this.audioContext) {
             await this.recreateAudioContext();
@@ -2345,8 +2379,6 @@ class Gradatone {
         if (fromUserGesture && this.audioContext && this.audioContext.state !== 'running') {
             await this.recreateAudioContext();
         }
-
-        await configureNativeAudioSession({ userGesture: fromUserGesture });
 
         if (this.isAudioRunning()) {
             this.hidePowerButton();
@@ -3904,22 +3936,28 @@ class Gradatone {
             return;
         }
 
-        this._touchStartChain = this._touchStartChain
-            .then(() => this.processTouchStartBatch(pendingTouches))
-            .catch((err) => console.warn('processTouchStartBatch:', err));
-    }
-
-    async processTouchStartBatch(pendingTouches) {
-        const ready = await this.ensureAudioReady({ fromUserGesture: true });
-        if (!ready || !this.audioContext) {
-            pendingTouches.forEach((p) => {
-                this.pendingStartTouchIds.delete(p.touchId);
-                this.deferredTouchEnds.delete(p.touchId);
-                this.ownedTouchIds.delete(p.touchId);
-            });
+        // オーディオ稼働中は await せず即鳴らす（連打の遅延を防ぐ）
+        if (this.isAudioRunning()) {
+            this.applyTouchStarts(pendingTouches);
             return;
         }
 
+        void this.ensureAudioReady({ fromUserGesture: true })
+            .then((ready) => {
+                if (!ready || !this.audioContext) {
+                    pendingTouches.forEach((p) => {
+                        this.pendingStartTouchIds.delete(p.touchId);
+                        this.deferredTouchEnds.delete(p.touchId);
+                        this.ownedTouchIds.delete(p.touchId);
+                    });
+                    return;
+                }
+                this.applyTouchStarts(pendingTouches);
+            })
+            .catch((err) => console.warn('applyTouchStarts:', err));
+    }
+
+    applyTouchStarts(pendingTouches) {
         for (const p of pendingTouches) {
             if (!this.pendingStartTouchIds.has(p.touchId)) {
                 continue;

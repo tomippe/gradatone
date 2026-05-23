@@ -1,6 +1,6 @@
 {
   "name": "gradatone",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Seamless piano application",
   "scripts": {
     "sass": "sass --watch style.scss:style.css --no-source-map",
