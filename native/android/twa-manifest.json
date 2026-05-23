@@ -1,0 +1,40 @@
+{
+  "packageId": "jp.tomippe.gradatone",
+  "host": "apps.tomippe.jp",
+  "name": "Gradatone",
+  "launcherName": "Gradatone",
+  "display": "standalone",
+  "themeColor": "#667EEA",
+  "themeColorDark": "#667EEA",
+  "navigationColor": "#0F0F23",
+  "navigationColorDark": "#0F0F23",
+  "navigationDividerColor": "#00000000",
+  "navigationDividerColorDark": "#00000000",
+  "backgroundColor": "#0F0F23",
+  "enableNotifications": false,
+  "startUrl": "/gradatone/",
+  "iconUrl": "https://apps.tomippe.jp/gradatone/icon-512.png",
+  "maskableIconUrl": "https://apps.tomippe.jp/gradatone/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./keystore/upload.keystore",
+    "alias": "upload"
+  },
+  "appVersion": "1.1.45",
+  "appVersionCode": 1,
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://apps.tomippe.jp/gradatone/manifest.json",
+  "fallbackType": "customtabs",
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 21,
+  "orientation": "default",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "features": {}
+}

@@ -4,6 +4,7 @@
 require "optparse"
 
 require_relative "asc-client"
+require_relative "store-locales"
 
 options = {
   bundle_id: ENV.fetch("BUNDLE_ID", "jp.tomippe.gradatone"),
@@ -95,20 +96,46 @@ client.patch(
 )
 puts "  ✓ category: Music"
 
-client.get("/v1/appInfos/#{info_id}/appInfoLocalizations", "limit" => 50).fetch("data").each do |loc|
+info_locs = client.get("/v1/appInfos/#{info_id}/appInfoLocalizations", "limit" => 50).fetch("data")
+info_locs.each do |loc|
+  locale = loc.dig("attributes", "locale")
+  meta = STORE_LOCALES[locale]
+  attrs = { privacyPolicyUrl: options[:privacy_policy_url] }
+  attrs[:subtitle] = meta[:subtitle] if meta&.dig(:subtitle)
   begin
     client.patch(
       "/v1/appInfoLocalizations/#{loc.fetch('id')}",
       data: {
         type: "appInfoLocalizations",
         id: loc.fetch("id"),
-        attributes: { privacyPolicyUrl: options[:privacy_policy_url] }
+        attributes: attrs
       }
     )
-    puts "  ✓ privacy policy URL: #{loc.dig('attributes', 'locale')}"
+    puts "  ✓ app info (#{locale}): privacy URL#{meta ? ', subtitle' : ''}"
   rescue RuntimeError => e
-    puts "  ⚠️ privacy policy URL skipped (#{loc.dig('attributes', 'locale')}): #{e.message.lines.first}"
+    puts "  ⚠️ app info skipped (#{locale}): #{e.message.lines.first}"
   end
+end
+
+STORE_LOCALES.each do |locale, meta|
+  next if info_locs.any? { |loc| loc.dig("attributes", "locale") == locale }
+
+  client.post(
+    "/v1/appInfoLocalizations",
+    data: {
+      type: "appInfoLocalizations",
+      attributes: {
+        locale: locale,
+        name: meta[:title],
+        subtitle: meta[:subtitle],
+        privacyPolicyUrl: options[:privacy_policy_url]
+      },
+      relationships: { appInfo: { data: { type: "appInfos", id: info_id } } }
+    }
+  )
+  puts "  ✓ app info localization created: #{locale}"
+rescue RuntimeError => e
+  puts "  ⚠️ app info create skipped (#{locale}): #{e.message.lines.first}"
 end
 
 version_string = options[:version]

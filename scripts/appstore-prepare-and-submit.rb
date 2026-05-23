@@ -5,6 +5,7 @@ require "json"
 require "optparse"
 
 require_relative "asc-client"
+require_relative "store-locales"
 
 options = {
   bundle_id: ENV.fetch("BUNDLE_ID", "jp.tomippe.gradatone"),
@@ -13,47 +14,7 @@ options = {
   build_number: nil,
   submit: false,
   metadata_only: false,
-  locales: {
-    "ja" => {
-      description: <<~TEXT.strip,
-        Gradatone は、画面をスワイプするだけで音程が滑らかに変化するシームレスなピッチ楽器です。従来の鍵盤では難しい連続的なグリッサンドや、微妙なニュアンスの表現が可能です。
-
-        複数の楽器レイヤーを重ねて豊かなハーモニーを作ったり、Snap をオンにして音階に寄せたりできます。ピアノ、弦楽器、シンセ、民族楽器など多数の音色を内蔵しています。
-
-        アカウント登録、広告、課金、トラッキングはありません。設定は端末内に保存されます。iOS アプリ版では消音スイッチがオンのままでも演奏できます（音量は端末のボタンで調整）。
-      TEXT
-      keywords: "楽器,ピアノ,グリッサンド,音楽,演奏,シンセ,タッチ,音階,メロディ,gradatone",
-      promotionalText: "スワイプで音程が流れる。鍵盤のない、無限音階のタッチ楽器。",
-      whatsNew: "App Store 版の初回リリース準備。",
-      supportUrl: "https://apps.tomippe.jp/gradatone/"
-    },
-    "en-US" => {
-      description: <<~TEXT.strip,
-        Gradatone is a seamless pitch instrument: swipe the screen and hear notes glide smoothly—glissandos and microtonal nuance that traditional keyboards cannot offer.
-
-        Layer multiple instrument sounds, enable Snap to pull pitches toward scales, and explore pianos, strings, synths, and more. No account, ads, in-app purchases, or tracking. Settings stay on your device.
-
-        On the iOS app, you can play even when the Ring/Silent switch is on (adjust loudness with the device volume buttons).
-      TEXT
-      keywords: "instrument,piano,glissando,music,play,synth,touch,scale,melody,gradatone",
-      promotionalText: "Swipe to bend pitch. A touch instrument beyond the keyboard.",
-      whatsNew: "Initial App Store release preparation.",
-      supportUrl: "https://apps.tomippe.jp/gradatone/"
-    },
-    "zh-Hans" => {
-      description: <<~TEXT.strip,
-        Gradatone 是一款无缝音高乐器：在屏幕上滑动即可让音高平滑变化，实现传统键盘难以做到的滑音与细微音程表现。
-
-        可叠加多种乐器音色，开启 Snap 将音高吸附到音阶，并探索钢琴、弦乐、合成器等音色。无需账号、广告、内购或追踪，设置保存在设备内。
-
-        iOS 应用版在静音开关开启时也可演奏（请用设备音量键调节响度）。
-      TEXT
-      keywords: "乐器,钢琴,滑音,音乐,演奏,合成器,触摸,音阶,旋律,gradatone",
-      promotionalText: "滑动改变音高。超越键盘的触摸乐器。",
-      whatsNew: "App Store 版首次发布准备。",
-      supportUrl: "https://apps.tomippe.jp/gradatone/"
-    }
-  }
+  locales: STORE_LOCALES.to_h { |locale, _| [locale, store_version_localization_attrs(locale)] }
 }
 
 OptionParser.new do |opts|

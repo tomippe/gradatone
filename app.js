@@ -784,6 +784,55 @@ async function configureNativeAudioSession({ userGesture = false } = {}) {
     }
 }
 
+/** 離した瞬間の画面速度（px/s）。windowStart〜windowEnd ms 前の区間を区間平均（合計変位÷合計時間） */
+function computeReleaseScreenVelocity(
+    positionHistory,
+    nowMs = Date.now(),
+    windowStartMs = 250,
+    windowEndMs = 50
+) {
+    if (!positionHistory || positionHistory.length < 2) {
+        return { velocityX: 0, velocityY: 0, method: 'empty' };
+    }
+
+    const recent = positionHistory
+        .filter((e) => {
+            const ageMs = nowMs - e.time;
+            return ageMs >= windowEndMs && ageMs <= windowStartMs;
+        })
+        .sort((a, b) => a.time - b.time);
+
+    if (recent.length < 2) {
+        return { velocityX: 0, velocityY: 0, method: 'short-window' };
+    }
+
+    let sumDx = 0;
+    let sumDy = 0;
+    let sumDt = 0;
+    for (let i = 1; i < recent.length; i++) {
+        const a = recent[i - 1];
+        const b = recent[i];
+        const dt = (b.time - a.time) / 1000;
+        if (dt <= 0) continue;
+        sumDx += b.x - a.x;
+        sumDy += b.y - a.y;
+        sumDt += dt;
+    }
+
+    if (sumDt <= 0) {
+        return { velocityX: 0, velocityY: 0, method: 'none' };
+    }
+
+    const velocityX = sumDx / sumDt;
+    const velocityY = sumDy / sumDt;
+    return {
+        velocityX,
+        velocityY,
+        method: 'window-average',
+        bestSpeed: Math.hypot(velocityX, velocityY)
+    };
+}
+
 class Gradatone {
     constructor() {
         this.audioContext = null;
@@ -2076,7 +2125,13 @@ class Gradatone {
         const touchIds = Array.from(this.activeTouches.keys());
         touchIds.forEach((touchId) => {
             try {
-                this.stopTouchSound(touchId);
+                const t = this.activeTouches.get(touchId);
+                this.stopTouchSound(
+                    touchId,
+                    'cleanup',
+                    t?.currentClientX ?? null,
+                    t?.currentClientY ?? null
+                );
             } catch (e) {
                 // Best-effort cleanup
             }
@@ -2099,12 +2154,13 @@ class Gradatone {
             this.endTouch(
                 touchId,
                 touch?.currentClientX ?? null,
-                touch?.currentClientY ?? null
+                touch?.currentClientY ?? null,
+                'reconcile'
             );
         });
     }
 
-    endTouch(touchId, clientX, clientY) {
+    endTouch(touchId, clientX, clientY, source = 'unknown') {
         this.ownedTouchIds.delete(touchId);
         this.cancelledTouchIds.add(touchId);
 
@@ -2119,7 +2175,7 @@ class Gradatone {
         this.labelStartedTouches.delete(touchId);
 
         if (this.activeTouches.has(touchId)) {
-            const inertiaInfo = this.stopTouchSound(touchId);
+            const inertiaInfo = this.stopTouchSound(touchId, source, clientX, clientY);
             this.markTouchIndicatorReleased(touchId, inertiaInfo);
             return;
         }
@@ -2307,6 +2363,59 @@ class Gradatone {
         if (blurOverlay) {
             blurOverlay.classList.add('hidden');
         }
+    }
+
+    /**
+     * 慣性の終了音程と滑り時間。
+     * 画面の min/max 音階で止めず、離した速度のまま release 中ずっと音程を動かす（上／下とも鳴り終わりまで）。
+     */
+    computeInertiaEndFrequency(startFreq, velocityX, velocityY, releaseTimeSec) {
+        const logStart = Math.log2(Math.max(20, startFreq));
+        const logMin = Math.log2(this.minFreq);
+        const logMax = Math.log2(this.maxFreq);
+        const logSpan = logMax - logMin;
+        const playableSize = this.getPlayableSpan().size;
+
+        if (playableSize <= 0 || releaseTimeSec <= 0 || logSpan <= 0) {
+            return {
+                endFreq: startFreq,
+                logSlopePerSec: 0,
+                screenLogSlopePerSec: 0,
+                inertiaGlideTime: releaseTimeSec,
+                beyondScale: false
+            };
+        }
+
+        const ratioSpeedPerSec = this.isPortrait
+            ? (-velocityY / playableSize)
+            : (velocityX / playableSize);
+        const logSlopePerSec = ratioSpeedPerSec * logSpan;
+        const screenLogSlopePerSec = logSlopePerSec;
+
+        const rawEndLog = logStart + logSlopePerSec * releaseTimeSec;
+
+        const nyquist = (this.audioContext?.sampleRate || 48000) / 2;
+        const maxOscFreq = nyquist * 0.95;
+        const minLog = Math.log2(20);
+        const maxLog = Math.log2(maxOscFreq);
+        const endLog = Math.max(minLog, Math.min(maxLog, rawEndLog));
+        const endFreq = Math.pow(2, endLog);
+
+        // 高速時は Nyquist/下限で頭打ち → 意図した log 傾きで到達する時間だけ滑らせる（3s かけない）
+        let inertiaGlideTime = releaseTimeSec;
+        if (Math.abs(logSlopePerSec) > 1e-6) {
+            inertiaGlideTime = Math.abs(endLog - logStart) / Math.abs(logSlopePerSec);
+            inertiaGlideTime = Math.max(0.03, Math.min(releaseTimeSec, inertiaGlideTime));
+        }
+
+        return {
+            endFreq,
+            logSlopePerSec,
+            screenLogSlopePerSec,
+            inertiaGlideTime,
+            beyondScale: rawEndLog > logMax + 1e-6 || rawEndLog < logMin - 1e-6,
+            nyquistLimited: rawEndLog > maxLog + 1e-6 || rawEndLog < minLog - 1e-6
+        };
     }
 
     getFrequencyFromPosition(x, y) {
@@ -3094,8 +3203,8 @@ class Gradatone {
         // Update screen position (which also records position history)
         this.setTouchPosition(touchId, clientX, clientY);
 
-        // Remove entries older than 150ms
-        const cutoffTime = Date.now() - 150;
+        // 慣性用に押し終わり 250ms 前まで保持（150ms 窓だと不足）
+        const cutoffTime = Date.now() - 350;
         touch.frequencyHistory = touch.frequencyHistory.filter(entry => entry.time > cutoffTime);
 
         // Update oscillator frequencies
@@ -3151,11 +3260,17 @@ class Gradatone {
         this.scheduleSnap(touchId, frequency);
     }
 
-    stopTouchSound(touchId) {
+    stopTouchSound(touchId, endSource = 'unknown', releaseClientX = null, releaseClientY = null) {
         const touch = this.activeTouches.get(touchId);
         if (!touch) {
             console.warn(`⚠️ stopTouchSound: No active touch for ${touchId}`);
             return;
+        }
+
+        if (releaseClientX != null && releaseClientY != null) {
+            touch.currentClientX = releaseClientX;
+            touch.currentClientY = releaseClientY;
+            this.setTouchPosition(touchId, releaseClientX, releaseClientY);
         }
 
         const elapsed = touchId === 'mouse' && this.mouseDownTime ?
@@ -3216,58 +3331,10 @@ class Gradatone {
         // Inertia velocity will be calculated from screen pixel velocity (velocityX/Y)
         // This ensures the visual speed matches the swipe speed
 
-        // Calculate screen position velocity (px per second)
-        let velocityX = 0; // px per second
-        let velocityY = 0; // px per second
-        if (touch.positionHistory && touch.positionHistory.length >= 2) {
-            const history = touch.positionHistory;
-            const now = Date.now();
-
-            // Filter to only last 150ms
-            const recent150ms = history.filter(e => now - e.time <= 150);
-
-            if (recent150ms.length >= 2) {
-                const oldest = recent150ms[0];
-                const newest = recent150ms[recent150ms.length - 1];
-                const timeDiff = (newest.time - oldest.time) / 1000; // seconds
-
-                if (timeDiff > 0) {
-                    const moveX = newest.x - oldest.x;
-                    const moveY = newest.y - oldest.y;
-                    const totalMove = Math.sqrt(moveX * moveX + moveY * moveY);
-
-                    // Only calculate velocity if there was actual movement (>5px in 150ms)
-                    if (totalMove > 5) {
-                        velocityX = moveX / timeDiff;
-                        velocityY = moveY / timeDiff;
-
-                        // Find first movement position (>5px from start)
-                        let firstMovePos = null;
-                        const firstPos = history[0];
-                        for (let i = 0; i < history.length; i++) {
-                            const pos = history[i];
-                            const distX = Math.abs(pos.x - firstPos.x);
-                            const distY = Math.abs(pos.y - firstPos.y);
-                            if (distX > 5 || distY > 5) {
-                                firstMovePos = pos;
-                                break;
-                            }
-                        }
-
-                        // Check movement duration - disable inertia if movement was shorter than 250ms
-                        if (firstMovePos) {
-                            const movementDuration = Date.now() - firstMovePos.time;
-                            if (movementDuration < 250) {
-                                velocityX = 0;
-                                velocityY = 0;
-                            }
-                        }
-                    } else {
-                    }
-                }
-            } else {
-            }
-        }
+        const nowMs = Date.now();
+        const releaseVel = computeReleaseScreenVelocity(touch.positionHistory, nowMs, 250, 50);
+        let velocityX = releaseVel.velocityX;
+        let velocityY = releaseVel.velocityY;
 
         // Detect quick mute (guitar mute technique)
         let isQuickMute = false;
@@ -3347,26 +3414,26 @@ class Gradatone {
         } else {
         }
 
-        // Apply inertia to frequency during release (based on screen pixel velocity)
         let endFreq = startFreq;
         const isLandscape = window.innerWidth >= window.innerHeight;
-        const rect = this.canvas.getBoundingClientRect();
 
-        // Calculate end position based on screen velocity
-        const endScreenX = startX + velocityX * releaseTime;
-        const endScreenY = startY + velocityY * releaseTime;
-
-        // Convert screen position to canvas position
-        const endCanvasX = endScreenX - rect.left;
-        const endCanvasY = endScreenY - rect.top;
-
-        // Calculate end frequency from end position
-        endFreq = this.getFrequencyFromPosition(endCanvasX, endCanvasY);
-
-        // Check if inertia is significant (velocity threshold: 50 px/s)
-        // Quick mute disables inertia
         const velocityThreshold = 50; // px/s
-        const hasInertia = !isQuickMute && (isLandscape ? Math.abs(velocityX) > velocityThreshold : Math.abs(velocityY) > velocityThreshold);
+        const pitchVelocity = isLandscape ? velocityX : velocityY;
+        const hasInertia = !isQuickMute && Math.abs(pitchVelocity) > velocityThreshold;
+
+        let inertiaGlideTime = releaseTime;
+        let inertiaMeta = { logSlopePerSec: 0, beyondScale: false };
+
+        if (hasInertia) {
+            inertiaMeta = this.computeInertiaEndFrequency(
+                startFreq,
+                velocityX,
+                velocityY,
+                releaseTime
+            );
+            endFreq = inertiaMeta.endFreq;
+            inertiaGlideTime = inertiaMeta.inertiaGlideTime;
+        }
 
         if (hasInertia) {
 
@@ -3387,7 +3454,7 @@ class Gradatone {
                     osc.frequency.cancelScheduledValues(now);
                     osc.frequency.setValueAtTime(startF, now);
                     // Use exponential ramp for logarithmic frequency scale
-                    osc.frequency.exponentialRampToValueAtTime(Math.max(20, Math.abs(endF)), now + releaseTime);
+                    osc.frequency.exponentialRampToValueAtTime(Math.max(20, Math.abs(endF)), now + inertiaGlideTime);
                 } catch (e) {
                     console.warn('Failed to set frequency ramp:', e);
                 }
@@ -3509,6 +3576,7 @@ class Gradatone {
             endFrequency: endFreq,
             hasInertia,
             releaseTime,
+            inertiaGlideTime: hasInertia ? inertiaGlideTime : releaseTime,
             currentFrequency: startFreq,
             velocityX,
             velocityY,
@@ -3566,20 +3634,18 @@ class Gradatone {
 
             // Get release time from stored value or instrument envelope
             const instrument = INSTRUMENTS[indicator.instrumentType];
-            const releaseTime = indicator.releaseTimeTotal || instrument?.envelope?.release || this.releaseTime;
+            const glideTime = indicator.releaseTimeTotal || instrument?.envelope?.release || this.releaseTime;
+            const gainReleaseTime = indicator.gainReleaseTimeTotal || glideTime;
 
-            if (releaseElapsed < releaseTime) {
-                // Fade out over instrument's release time
-                const releaseProgress = releaseElapsed / releaseTime;
+            if (releaseElapsed < gainReleaseTime) {
+                const releaseProgress = releaseElapsed / gainReleaseTime;
                 opacity = indicator.releaseOpacity * (1 - releaseProgress);
 
-                // Apply exponential frequency change to match audio (based on screen pixel velocity)
-                if (indicator.hasInertia) {
+                if (indicator.hasInertia && releaseElapsed < glideTime) {
                     const startFreq = indicator.startFrequency || 440;
                     const endFreq = indicator.endFrequency || startFreq;
 
-                    // Exponential interpolation for logarithmic frequency scale
-                    const progress = releaseElapsed / releaseTime;
+                    const progress = releaseElapsed / glideTime;
                     const ratio = endFreq / startFreq;
                     const currentFreq = startFreq * Math.pow(ratio, progress);
 
@@ -3601,7 +3667,7 @@ class Gradatone {
                         // Landscape: X is pitch, Y is free
                         // Apply Y velocity inertia with same progress ratio
                         if (Math.abs(indicator.velocityY) > velocityThreshold) {
-                            const endY = indicator.startY + indicator.velocityY * releaseTime;
+                            const endY = indicator.startY + indicator.velocityY * glideTime;
                             const clampedEndY = Math.max(0, Math.min(window.innerHeight, endY));
                             // Linear interpolation with same progress
                             finalY = indicator.startY + (clampedEndY - indicator.startY) * progress;
@@ -3612,7 +3678,7 @@ class Gradatone {
                         // Portrait: Y is pitch, X is free
                         // Apply X velocity inertia with same progress ratio
                         if (Math.abs(indicator.velocityX) > velocityThreshold) {
-                            const endX = indicator.startX + indicator.velocityX * releaseTime;
+                            const endX = indicator.startX + indicator.velocityX * glideTime;
                             const clampedEndX = Math.max(0, Math.min(window.innerWidth, endX));
                             // Linear interpolation with same progress
                             finalX = indicator.startX + (clampedEndX - indicator.startX) * progress;
@@ -3709,7 +3775,8 @@ class Gradatone {
         if (inertiaInfo) {
             indicator.hasInertia = inertiaInfo.hasInertia || false;
             indicator.endFrequency = inertiaInfo.endFrequency || inertiaInfo.currentFrequency || 440;
-            indicator.releaseTimeTotal = inertiaInfo.releaseTime || 0.5; // Total release time in seconds
+            indicator.releaseTimeTotal = inertiaInfo.inertiaGlideTime || inertiaInfo.releaseTime || 0.5;
+            indicator.gainReleaseTimeTotal = inertiaInfo.releaseTime || 0.5;
             indicator.startFrequency = inertiaInfo.currentFrequency || 440; // Store start frequency
             indicator.velocityX = inertiaInfo.velocityX || 0; // px per second
             indicator.velocityY = inertiaInfo.velocityY || 0; // px per second
@@ -3928,7 +3995,7 @@ class Gradatone {
         // Only stop sound if it's still active
         let inertiaInfo = null;
         if (this.activeTouches.has('mouse')) {
-            inertiaInfo = this.stopTouchSound('mouse');
+            inertiaInfo = this.stopTouchSound('mouse', 'mouse', e.clientX, e.clientY);
         } else {
         }
 

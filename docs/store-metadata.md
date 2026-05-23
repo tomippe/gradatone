@@ -23,13 +23,21 @@ To test: launch the app, tap the canvas or Power button if shown, swipe horizont
 
 ## 掲載文言
 
-`scripts/store-locales.rb` および `scripts/appstore-prepare-and-submit.rb` が正本。API 反映:
+正本は `scripts/store-locales.rb`（紹介ページ WP #1735 の本文・app-cp を反映）。`appstore-prepare-and-submit.rb` / `appstore-setup-app-info.rb` が参照。
+
+API 反映:
 
 ```bash
 cd /Users/tomippe/Cursor/gradatone
 source ~/.apple-env && source .env
 ./scripts/appstore-sync-listing.sh $(cat version.txt)
 ```
+
+## Google Play（Android TWA）
+
+- 手順: [`google-play-setup.md`](google-play-setup.md)
+- パッケージ: `jp.tomippe.gradatone`
+- 掲載文言は `scripts/store-locales.rb` を `play-sync-listing.sh` で流用
 
 ## Connect Web で人間が確認すること
 

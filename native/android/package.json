@@ -1,0 +1,8 @@
+{
+  "name": "gradatone-android-twa",
+  "private": true,
+  "description": "Gradatone Android TWA (Bubblewrap)",
+  "devDependencies": {
+    "@bubblewrap/cli": "^1.24.1"
+  }
+}
