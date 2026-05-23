@@ -713,18 +713,74 @@ async function waitForCapacitorBridge(maxMs = 5000) {
     }
 }
 
-async function configureNativeAudioSession() {
+/** WKWebView 用: 極短の無音 MP3（HTML audio で Web プロセスの session を playback に寄せる） */
+const IOS_SILENT_MP3 =
+    'data:audio/mp3;base64,//tAxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAFAAAESAAzMzMzMzMzMzMzMzMzMzMzMzMzZmZmZmZmZmZmZmZmZmZmZmZmZmaZmZmZmZmZmZmZmZmZmZmZmZmZmczMzMzMzMzMzMzMzMzMzMzMzMzM//////////////////////////8AAAA5TEFNRTMuMTAwAZYAAAAAAAAAABQ4JAMGQgAAOAAABEhNIZS0AAAAAAD/+0DEAAPH3Yz0AAR8CPqyIEABp6AxjG/4x/XiInE4lfQDFwIIRE+uBgZoW4RL0OLMDFn6E5v+/u5ehf76bu7/6bu5+gAiIQGAABQIUJ0QolFghEn/9PhZQpcUTpXMjo0OGzRCZXyKxoIQzB2KhCtGobpT9TRVj/3Pmfp+f8X7Pu1B04sTnc3s0XhOlXoGVCMNo9X//9/r6a10TZEY5DsxqvO7mO5qFvpFCmKIjhpSItGsUYcRO//7QsQRgEiljQIAgLFJAbIhNBCa+JmorCbOi5q9nVd2dKnusTMQg4MFUlD6DQ4OFijwGAijRMfLbHG4nLVTjydyPlJTj8pfPflf9/5GD950A5e+jsrmNZSjSirjs1R7hnkia8vr//l/7Nb+crvr9Ok5ZJOylUKRxf/P9Zn0j2P4pJYXyKkeuy5wUYtdmOu6uobEtFqhIJViLEKIjGxchGev/L3Y0O3bwrIOszTBAZ7Ih28EUaSOZf/7QsQfg8fpjQIADN0JHbGgQBAZ8T//y//t/7d/2+f5m7MdCeo/9tdkMtGLbt1tqnabRroO1Qfvh20yEbei8nfDXP7btW7f9/uO9tbe5IvHQbLlxpf3DkAk0ojYcv///5/u3/7PTfGjPEPUvt5D6f+/3Lea4lz4tc4TnM/mFPrmalWbboeNiNyeyr+vufttZuvrVrt/WYv3T74JFo8qEDiJqJrmDTs///v99xDku2xG02jjunrICP/7QsQtA8kpkQAAgNMA/7FgQAGnobgfghgqA+uXwWQ3XFmGimSbe2X3ksY//KzK1a2k6cnNWOPJnPWUsYbKqkh8RJzrVf///P///////4vyhLKHLrCb5nIrYIUss4cthigL1lQ1wwNAc6C1pf1TIKRSkt+a//z+yLVcwlXKSqeSuCVQFLng2h4AFAFgTkH+Z/8jTX/zr//zsJV/5f//5UX/0ZNCNCCaf5lTCTRkaEdhNP//n/KUjf/7QsQ5AEhdiwAAjN7I6jGddBCO+WGTQ1mXrYatSAgaykxBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg==';
+
+function setNavigatorAudioSessionPlayback() {
+    try {
+        if (navigator.audioSession && 'type' in navigator.audioSession) {
+            navigator.audioSession.type = 'playback';
+        }
+    } catch (e) {
+        console.warn('navigator.audioSession:', e);
+    }
+}
+
+function disableIosSilentBypassAudio() {
+    const el = document.getElementById('gradatone-ios-audio-session');
+    if (el) {
+        el.muted = true;
+    }
+}
+
+async function enableIosSilentBypassAudio({ create = false } = {}) {
     if (!isNativeCapacitor()) return;
+    let el = document.getElementById('gradatone-ios-audio-session');
+    if (!el && create) {
+        el = document.createElement('audio');
+        el.id = 'gradatone-ios-audio-session';
+        el.loop = true;
+        el.volume = 0.01;
+        el.setAttribute('playsinline', '');
+        el.setAttribute('webkit-playsinline', '');
+        el.src = IOS_SILENT_MP3;
+        document.body.appendChild(el);
+        try {
+            await el.play();
+        } catch (e) {
+            console.warn('ios silent bypass play:', e);
+        }
+    } else if (el) {
+        el.muted = false;
+        try {
+            if (el.paused) {
+                await el.play();
+            }
+        } catch (e) {
+            console.warn('ios silent bypass resume:', e);
+        }
+    }
+}
+
+/** ネイティブ AVAudioSession + Web プロセス側の playback 化（消音スイッチ対策） */
+async function configureNativeAudioSession({ userGesture = false } = {}) {
+    if (!isNativeCapacitor()) return;
+    setNavigatorAudioSessionPlayback();
     try {
         const plugin = getGradatoneAudioSessionPlugin();
         if (plugin && typeof plugin.configure === 'function') {
             await plugin.configure();
-            // WebKit が AudioContext 後に ambient に戻すことがあるため直後にも再適用
             await new Promise((r) => setTimeout(r, 0));
             await plugin.configure();
         }
     } catch (e) {
         console.warn('GradatoneAudioSession configure:', e);
+    }
+    if (userGesture) {
+        await enableIosSilentBypassAudio({ create: true });
+    } else {
+        await enableIosSilentBypassAudio({ create: false });
     }
 }
 
@@ -736,6 +792,8 @@ class Gradatone {
         this.activeTouches = new Map();
         this.touchIndicators = new Map(); // Track visual indicators
         this.labelStartedTouches = new Map(); // Track touches that started on labels
+        this.ownedTouchIds = new Set(); // canvas 上で開始したタッチ
+        this.cancelledTouchIds = new Set(); // touchend が touchstart(非同期) より先に来た ID
         this.canvas = document.getElementById('canvas');
         this.ctx = this.canvas.getContext('2d');
         this.startButton = document.getElementById('startButton');
@@ -886,15 +944,54 @@ class Gradatone {
         return Math.max(base, uiMin, safeLeft, safeRight);
     }
 
-    /** 音階ラベル・ガイド線で共通の座標（ratio 0=低音端, 1=高音端） */
-    getPlayablePositionFromRatio(ratio) {
+    getPlayableSpan() {
         const edgeInset = this.getLabelEdgeInset();
         if (this.isPortrait) {
-            const span = Math.max(0, this.canvasHeight - edgeInset * 2);
-            return edgeInset + (1 - ratio) * span;
+            return {
+                start: edgeInset,
+                size: Math.max(0, this.canvasHeight - edgeInset * 2)
+            };
         }
-        const span = Math.max(0, this.canvasWidth - edgeInset * 2);
-        return edgeInset + ratio * span;
+        return {
+            start: edgeInset,
+            size: Math.max(0, this.canvasWidth - edgeInset * 2)
+        };
+    }
+
+    getRatioFromPlayablePosition(pos) {
+        const { start, size } = this.getPlayableSpan();
+        if (size <= 0) return 0;
+        const clamped = Math.min(Math.max(pos, start), start + size);
+        if (this.isPortrait) {
+            return 1 - (clamped - start) / size;
+        }
+        return (clamped - start) / size;
+    }
+
+    /** 音階ラベル・ガイド線・タッチ音程で共通の座標（ratio 0=低音端, 1=高音端） */
+    getPlayablePositionFromRatio(ratio) {
+        const { start, size } = this.getPlayableSpan();
+        if (this.isPortrait) {
+            return start + (1 - ratio) * size;
+        }
+        return start + ratio * size;
+    }
+
+    getUiBottomOffsetPx() {
+        const style = getComputedStyle(document.documentElement);
+        const safeBottom = parseFloat(style.getPropertyValue('--safe-bottom')) || 0;
+        const uiBottom = parseFloat(style.getPropertyValue('--ui-bottom')) || 12;
+        const uiMin = parseFloat(style.getPropertyValue('--ui-inset-min')) || 12;
+        return safeBottom + Math.max(uiBottom, uiMin);
+    }
+
+    refreshLayerControlPositions() {
+        this.layers.forEach((layer, index) => {
+            const controlDiv = this.instrumentControls.querySelector(`[data-layer-id="${layer.id}"]`);
+            if (controlDiv) {
+                this.positionLayerControl(controlDiv, index, this.layers.length);
+            }
+        });
     }
 
     setupCanvas() {
@@ -1075,8 +1172,6 @@ class Gradatone {
     }
 
     getPositionFromFrequency(frequency) {
-        // Convert frequency to position (inverse of getFrequencyFromPosition)
-        // Need to reverse transpose to get the base frequency
         const baseFreq = frequency / Math.pow(2, this.transposeOffset / 12);
 
         const logMin = Math.log2(this.minFreq);
@@ -1084,13 +1179,7 @@ class Gradatone {
         const logFreq = Math.log2(baseFreq);
         const ratio = (logFreq - logMin) / (logMax - logMin);
 
-        if (this.isPortrait) {
-            // Portrait: Y position (inverted - high frequencies at top)
-            return (1 - ratio) * this.canvasHeight;
-        } else {
-            // Landscape: X position (left to right)
-            return ratio * this.canvasWidth;
-        }
+        return this.getPlayablePositionFromRatio(ratio);
     }
 
     // Get screen coordinates (clientX, clientY) from frequency
@@ -1748,8 +1837,11 @@ class Gradatone {
             void this.handleTouchStart(e);
         }, { passive: false });
         this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
-        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
+
+        // canvas 外で指を離しても拾う（capture で全 touchend / touchcancel を監視）
+        this.boundHandleGlobalTouchEnd = (e) => this.handleGlobalTouchEnd(e);
+        document.addEventListener('touchend', this.boundHandleGlobalTouchEnd, { capture: true, passive: false });
+        document.addEventListener('touchcancel', this.boundHandleGlobalTouchEnd, { capture: true, passive: false });
 
         // Mouse events
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
@@ -1949,13 +2041,16 @@ class Gradatone {
 
         if (this.isPortrait) {
             controlDiv.style.left = `${centerPosition}%`;
-            controlDiv.style.bottom = '0.5rem';
+            controlDiv.style.bottom = `${this.getUiBottomOffsetPx()}px`;
             controlDiv.style.top = 'auto';
             controlDiv.style.right = 'auto';
             controlDiv.style.transform = 'translateX(-50%)';
         } else {
+            const style = getComputedStyle(document.documentElement);
+            const safeRight = parseFloat(style.getPropertyValue('--safe-right')) || 0;
+            const uiRight = parseFloat(style.getPropertyValue('--ui-right')) || 12;
             controlDiv.style.top = `${centerPosition}%`;
-            controlDiv.style.right = '1rem';
+            controlDiv.style.right = `${safeRight + uiRight}px`;
             controlDiv.style.left = 'auto';
             controlDiv.style.bottom = 'auto';
             controlDiv.style.transform = 'translateY(-50%)';
@@ -1999,6 +2094,67 @@ class Gradatone {
                 // Best-effort cleanup
             }
         });
+        this.ownedTouchIds.clear();
+        this.cancelledTouchIds.clear();
+    }
+
+    /** 画面上に存在しないタッチ ID の音・インジケータを解放 */
+    reconcileActiveTouches(touchList) {
+        const live = new Set();
+        for (let i = 0; i < touchList.length; i++) {
+            live.add(touchList[i].identifier);
+        }
+        const staleIds = new Set([...this.activeTouches.keys(), ...this.ownedTouchIds]);
+        staleIds.forEach((touchId) => {
+            if (touchId === 'mouse') return;
+            if (live.has(touchId)) return;
+            const touch = this.activeTouches.get(touchId);
+            this.endTouch(
+                touchId,
+                touch?.currentClientX ?? null,
+                touch?.currentClientY ?? null
+            );
+        });
+    }
+
+    endTouch(touchId, clientX, clientY) {
+        this.ownedTouchIds.delete(touchId);
+        this.cancelledTouchIds.add(touchId);
+
+        if (
+            clientX != null &&
+            clientY != null &&
+            this.labelStartedTouches.has(touchId) &&
+            this.isPointOnLabel(clientX, clientY)
+        ) {
+            this.toggleLabelPosition();
+        }
+        this.labelStartedTouches.delete(touchId);
+
+        if (this.activeTouches.has(touchId)) {
+            const inertiaInfo = this.stopTouchSound(touchId);
+            this.markTouchIndicatorReleased(touchId, inertiaInfo);
+            return;
+        }
+
+        const indicator = this.touchIndicators.get(touchId);
+        if (indicator && indicator.releaseTime === null) {
+            if (indicator.element) {
+                indicator.element.remove();
+            }
+            this.touchIndicators.delete(touchId);
+        }
+    }
+
+    handleGlobalTouchEnd(e) {
+        for (let touch of e.changedTouches) {
+            const touchId = touch.identifier;
+            if (!this.ownedTouchIds.has(touchId) && !this.activeTouches.has(touchId)) {
+                continue;
+            }
+            this.endTouch(touchId, touch.clientX, touch.clientY);
+        }
+        this.reconcileActiveTouches(e.touches);
     }
 
     async destroyAudioContext() {
@@ -2027,7 +2183,7 @@ class Gradatone {
             if (!this.audioContext) return;
             const state = this.audioContext.state;
             if (state === 'running') {
-                void configureNativeAudioSession();
+                void configureNativeAudioSession({ userGesture: true });
                 this.hidePowerButton();
                 return;
             }
@@ -2043,12 +2199,12 @@ class Gradatone {
     }
 
     async createAudioGraph() {
-        await configureNativeAudioSession();
+        await configureNativeAudioSession({ userGesture: true });
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
             sampleRate: 48000,
             latencyHint: 'interactive'
         });
-        await configureNativeAudioSession();
+        await configureNativeAudioSession({ userGesture: true });
         this.attachAudioStateListener();
 
         this.masterGain = this.audioContext.createGain();
@@ -2080,7 +2236,7 @@ class Gradatone {
         if (this.audioContext && this.audioContext.state === 'suspended') {
             await this.audioContext.resume();
         }
-        await configureNativeAudioSession();
+        await configureNativeAudioSession({ userGesture: true });
     }
 
     isAudioRunning() {
@@ -2098,7 +2254,7 @@ class Gradatone {
     }
 
     async ensureAudioReady({ fromUserGesture = false, fromBFCache = false } = {}) {
-        await configureNativeAudioSession();
+        await configureNativeAudioSession({ userGesture: fromUserGesture });
 
         if (fromBFCache && this.audioContext) {
             await this.recreateAudioContext();
@@ -2127,7 +2283,7 @@ class Gradatone {
             await this.recreateAudioContext();
         }
 
-        await configureNativeAudioSession();
+        await configureNativeAudioSession({ userGesture: fromUserGesture });
 
         if (this.isAudioRunning()) {
             this.hidePowerButton();
@@ -2167,15 +2323,9 @@ class Gradatone {
     }
 
     getFrequencyFromPosition(x, y) {
-        let ratio;
-        if (this.isPortrait) {
-            // Portrait: use Y position (top to bottom)
-            // Invert so high frequencies are at top
-            ratio = 1 - (y / this.canvasHeight);
-        } else {
-            // Landscape: use X position (left to right)
-            ratio = x / this.canvasWidth;
-        }
+        const ratio = this.isPortrait
+            ? this.getRatioFromPlayablePosition(y)
+            : this.getRatioFromPlayablePosition(x);
 
         // Logarithmic scale for natural pitch perception
         const logMin = Math.log2(this.minFreq);
@@ -2467,7 +2617,7 @@ class Gradatone {
     createTouchSound(touchId, frequency, layerIndex = 0, clientX = null, clientY = null) {
         if (!this.audioContext) return;
         if (isNativeCapacitor()) {
-            void configureNativeAudioSession();
+            void configureNativeAudioSession({ userGesture: true });
         }
 
         const now = this.audioContext.currentTime;
@@ -2782,32 +2932,39 @@ class Gradatone {
             totalTime = instrument.envelope.attack + instrument.envelope.decay + holdTime + fadeOutTime;
         }
 
-        // Auto-stop oscillators after envelope time to prevent accumulation
+        // Auto-stop: touchend 欠落時の安全弁（通常は stopTouchSound で解除）
         const autoStopTimeout = setTimeout(() => {
+            if (this.activeTouches.has(touchId)) {
+                this.endTouch(
+                    touchId,
+                    this.activeTouches.get(touchId)?.currentClientX ?? null,
+                    this.activeTouches.get(touchId)?.currentClientY ?? null
+                );
+                return;
+            }
             try {
                 oscillators.forEach(({ osc }) => {
                     try {
                         osc.stop();
-                    } catch (e) {
+                    } catch (err) {
                         // Already stopped
                     }
                 });
                 if (lfo) {
                     try {
                         lfo.stop();
-                    } catch (e) { }
+                    } catch (err) { /* noop */ }
                 }
                 if (sustainNoiseSource) {
                     try {
                         sustainNoiseSource.stop();
-                    } catch (e) { }
+                    } catch (err) { /* noop */ }
                 }
-            } catch (e) {
+                gainNode.gain.cancelScheduledValues(this.audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+            } catch (err) {
                 // Ignore
             }
-
-            // Also mark indicator as released when sound auto-stops
-            // This handles cases where touchend was lost (common on non-iOS devices)
             this.markTouchIndicatorReleased(touchId, null);
         }, totalTime * 1000 + 100);
 
@@ -3594,60 +3751,32 @@ class Gradatone {
     // Touch event handlers
     async handleTouchStart(e) {
         e.preventDefault();
-        const ready = await this.ensureAudioReady({ fromUserGesture: true });
-        if (!ready || !this.audioContext) {
-            return;
-        }
-        await configureNativeAudioSession();
+        this.reconcileActiveTouches(e.touches);
 
         const rect = this.canvas.getBoundingClientRect();
+        const pendingTouches = [];
 
         for (let touch of e.changedTouches) {
             const touchId = touch.identifier;
+            this.ownedTouchIds.add(touchId);
+            this.cancelledTouchIds.delete(touchId);
 
-            // Force cleanup of any existing touch with the same identifier
-            // This handles cases where touchend was lost (common on non-iOS devices)
             if (this.activeTouches.has(touchId)) {
-                const existingTouch = this.activeTouches.get(touchId);
-
-                // Cancel any pending timeouts
-                if (existingTouch.cleanupTimeout) {
-                    clearTimeout(existingTouch.cleanupTimeout);
-                }
-                if (existingTouch.autoStopTimeout) {
-                    clearTimeout(existingTouch.autoStopTimeout);
-                }
-                if (existingTouch.snapTimeout) {
-                    clearTimeout(existingTouch.snapTimeout);
-                }
-
-                // Immediately remove from active touches
-                this.activeTouches.delete(touchId);
-
-                // Stop oscillators immediately
-                try {
-                    existingTouch.oscillators.forEach(({ osc }) => osc.stop());
-                } catch (e) {
-                    // Already stopped
-                }
+                this.endTouch(touchId, touch.clientX, touch.clientY);
             }
 
-            // Handle existing indicator
             if (this.touchIndicators.has(touchId)) {
                 const indicator = this.touchIndicators.get(touchId);
                 if (indicator) {
                     if (indicator.releaseTime === null) {
-                        // touchend was lost - force remove the indicator
                         if (indicator.element) {
                             indicator.element.remove();
                         }
                         this.touchIndicators.delete(touchId);
                     } else {
-                        // Already released and fading out - move to a new key to continue animation
                         const newKey = `released-${touchId}-${Date.now()}`;
                         this.touchIndicators.delete(touchId);
                         this.touchIndicators.set(newKey, indicator);
-                        // Restart animation with new key
                         this.animateTouchIndicator(newKey);
                     }
                 }
@@ -3655,25 +3784,48 @@ class Gradatone {
 
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
-            const freq = this.getFrequencyFromPosition(x, y);
+            pendingTouches.push({
+                touchId,
+                x,
+                y,
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+                layerIndex: this.getLayerIndexFromPosition(x, y),
+                onLabel: this.isPointOnLabel(touch.clientX, touch.clientY)
+            });
+        }
 
-            // Determine which layer this touch belongs to
-            const layerIndex = this.getLayerIndexFromPosition(x, y);
+        const ready = await this.ensureAudioReady({ fromUserGesture: true });
+        if (!ready || !this.audioContext) {
+            pendingTouches.forEach((p) => {
+                this.ownedTouchIds.delete(p.touchId);
+            });
+            return;
+        }
+        await configureNativeAudioSession({ userGesture: true });
 
-            // Track if touch started on a label
-            if (this.isPointOnLabel(touch.clientX, touch.clientY)) {
-                this.labelStartedTouches.set(touchId, true);
+        for (const p of pendingTouches) {
+            if (this.cancelledTouchIds.has(p.touchId)) {
+                this.cancelledTouchIds.delete(p.touchId);
+                this.ownedTouchIds.delete(p.touchId);
+                continue;
             }
 
-            this.createTouchSound(touchId, freq, layerIndex, touch.clientX, touch.clientY);
-            this.createTouchIndicator(touchId, touch.clientX, touch.clientY, layerIndex);
-            this.setTouchPosition(touchId, touch.clientX, touch.clientY);
+            if (p.onLabel) {
+                this.labelStartedTouches.set(p.touchId, true);
+            }
+
+            const freq = this.getFrequencyFromPosition(p.x, p.y);
+            this.createTouchSound(p.touchId, freq, p.layerIndex, p.clientX, p.clientY);
+            this.createTouchIndicator(p.touchId, p.clientX, p.clientY, p.layerIndex);
+            this.setTouchPosition(p.touchId, p.clientX, p.clientY);
         }
     }
 
     handleTouchMove(e) {
         e.preventDefault();
         if (!this.audioContext) return;
+        this.reconcileActiveTouches(e.touches);
 
         const rect = this.canvas.getBoundingClientRect();
 
@@ -3683,24 +3835,6 @@ class Gradatone {
             const freq = this.getFrequencyFromPosition(x, y);
             this.updateTouchSound(touch.identifier, freq, touch.clientX, touch.clientY);
             this.updateTouchIndicatorPosition(touch.identifier, touch.clientX, touch.clientY, false);
-        }
-    }
-
-    handleTouchEnd(e) {
-        e.preventDefault();
-
-        for (let touch of e.changedTouches) {
-            const touchId = touch.identifier;
-            
-            // Check if touch started and ended on a label
-            if (this.labelStartedTouches.has(touchId) && 
-                this.isPointOnLabel(touch.clientX, touch.clientY)) {
-                this.toggleLabelPosition();
-            }
-            this.labelStartedTouches.delete(touchId);
-            
-            const inertiaInfo = this.stopTouchSound(touchId);
-            this.markTouchIndicatorReleased(touchId, inertiaInfo);
         }
     }
 
@@ -3874,6 +4008,7 @@ function onSafeAreaInsetsUpdated() {
     if (!app) return;
     app.setupPitchLabels();
     app.drawGuideLines();
+    app.refreshLayerControlPositions();
 }
 
 /** env(safe-area-inset-*) + ネイティブ inset を CSS 変数へ反映 */
@@ -3913,14 +4048,13 @@ function installSafeAreaInsets() {
 document.addEventListener('DOMContentLoaded', async () => {
     installSafeAreaInsets();
     await waitForCapacitorBridge();
-    await configureNativeAudioSession();
 
     if (isNativeCapacitor()) {
         const appPlugin = window.Capacitor?.Plugins?.App;
         if (appPlugin && typeof appPlugin.addListener === 'function') {
             appPlugin.addListener('appStateChange', ({ isActive }) => {
                 if (isActive) {
-                    void configureNativeAudioSession();
+                    void configureNativeAudioSession({ userGesture: false });
                     void fetchNativeSafeAreaInsets().then((native) => {
                         if (native) {
                             applySafeAreaInsets(
@@ -3929,13 +4063,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                             onSafeAreaInsetsUpdated();
                         }
                     });
+                } else {
+                    disableIosSilentBypassAudio();
                 }
             });
         }
     }
 
     new Gradatone();
-    await configureNativeAudioSession();
 });
 
 // Register Service Worker for PWA (not in Capacitor native shell)

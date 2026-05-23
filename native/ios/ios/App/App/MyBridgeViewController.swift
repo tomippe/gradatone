@@ -22,6 +22,7 @@ class MyBridgeViewController: CAPBridgeViewController {
         GradatoneAudioSession.activatePlaybackSession()
         configureEdgeToEdgeWebView()
         pushSafeAreaInsetsToWeb()
+        restoreWebPlaybackAudioSession()
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
 
@@ -64,6 +65,19 @@ class MyBridgeViewController: CAPBridgeViewController {
           s.setProperty('--safe-bottom','\(insets.bottom)px');
           s.setProperty('--safe-left','\(insets.left)px');
           window.dispatchEvent(new Event('gradatone-safe-area'));
+        })();
+        """
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    /// フォアグラウンド復帰時に Web 側の無音 audio ハックを再有効化
+    private func restoreWebPlaybackAudioSession() {
+        guard let webView = webView else { return }
+        let js = """
+        (function(){
+          try { if (navigator.audioSession) navigator.audioSession.type='playback'; } catch(e) {}
+          var el=document.getElementById('gradatone-ios-audio-session');
+          if (el) { el.muted=false; el.play().catch(function(){}); }
         })();
         """
         webView.evaluateJavaScript(js, completionHandler: nil)
