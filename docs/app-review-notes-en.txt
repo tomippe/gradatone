@@ -1,0 +1,71 @@
+APP REVIEW INFORMATION — Gradatone (iOS)
+Version 1.2.3 (first App Store release)
+Contact: tomi@tomippe.jp | +819045065291
+
+---
+
+WHAT THIS APP IS
+
+Gradatone is a touch-controlled musical instrument. The user touches a full-screen canvas; pitch changes smoothly as the finger moves horizontally (continuous pitch / glissando), similar to a theremin or slide whistle but with selectable scales and timbres.
+
+Target audience: anyone who wants to explore melody and pitch by touch without piano-key steps — hobbyists, music learners, and improvisers.
+
+No account, login, ads, in-app purchases, subscriptions, analytics SDKs, or tracking. Settings (instrument, scale, labels) are stored only in on-device localStorage.
+
+Privacy policy: https://apps.tomippe.jp/gradatone/policy/
+
+---
+
+HOW TO TEST (NO LOGIN)
+
+1. Launch the app on iPhone (no sign-in).
+2. If a Power button overlay appears on first launch, tap it once to enable audio (user-gesture requirement for Web Audio). On later launches audio usually starts automatically after the first touch.
+3. Touch and hold anywhere on the dark gradient canvas. You should hear a tone immediately; move the finger left/right to change pitch smoothly.
+4. Lift the finger to stop the note. Tap quickly in different places for separate notes (rapid taps should each produce a short sound).
+5. Tap the gear icon (bottom) to open Settings:
+   - Change Scale (Major, Minor, Okinawan, Indian raga, Arabic, Blues, etc.)
+   - Change Label style (English note names, kana, Indian Sa/Pa, etc.)
+   - Toggle Snap to pull pitch toward scale degrees
+   - Change Instrument layers (piano, strings, synth, etc.)
+6. Close Settings and play again; pitch guides and labels update accordingly.
+
+Ring/Silent switch: The app uses AVAudioSession category playback so the instrument can be heard even when the hardware mute switch is on. Volume is controlled with the device volume buttons (not the mute switch).
+
+---
+
+DATA COLLECTION
+
+The app does not collect personal data. No microphone, camera, contacts, location, or IDFA. Network is used only to load the bundled web assets inside the Capacitor shell (same origin as https://apps.tomippe.jp/gradatone/); there is no user account server.
+
+---
+
+DEVICES TESTED
+
+- iPhone (physical), iOS 18.x / 26.x (latest available on device at submission)
+- TestFlight build 15, marketing version 1.2.3
+
+---
+
+SCREENSHOTS / PREVIEWS
+
+Store screenshots were captured on the same iPhone class (1170 x 2532 capture, uploaded at required 6.7-inch display size). They show: playing on the canvas, Settings with scale/instrument controls, and the playing surface with labels.
+
+Optional: If you need a screen recording of the full flow, contact tomi@tomippe.jp — we can provide a short MP4 via Resolution Center.
+
+---
+
+REGIONAL DIFFERENCES
+
+None. UI follows system language among Japanese, English, and Simplified Chinese (in-app strings). Behavior is identical in all storefronts.
+
+---
+
+THIRD-PARTY CONTENT
+
+The app does not display third-party copyrighted content. All sounds are synthesized in real time via Web Audio API oscillators (no sampled song files).
+
+---
+
+ENCRYPTION
+
+Uses standard HTTPS/TLS only for loading static app resources. ITSAppUsesNonExemptEncryption = false on the build.

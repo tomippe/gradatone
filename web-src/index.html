@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Gradatone - A seamless pitch instrument that produces smooth transitions between notes impossible on traditional keyboards. Play continuous glissandos by swiping, create multi-layered harmonies with multiple instruments, and explore microtonal expressions with touch-sensitive controls.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Gradatone</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="blur-overlay"></div>
+        
+        <div class="title-overlay">
+            <h1>
+                Gradatone
+                <img class="logo-overlay" alt="StudioTomippe Apps" src="https://tomippe.jp/img/apps-logo.svg">
+            </h1>
+        </div>
+
+        <button id="settingsToggle" class="settings-toggle" aria-label="Toggle Settings">
+            <svg viewBox="0 0 48 48" width="20" height="20">
+                <path d="m24.04 0.14285c-1.376 0-2.7263 0.12375-4.0386 0.34741l-0.64 6.7853c-1.3572 0.37831-2.6417 0.90728-3.8432 1.585l-5.244-4.3317c-2.2152 1.5679-4.1541 3.4955-5.7217 5.7101l4.3426 5.2437c-0.67695 1.2001-1.2177 2.4878-1.5959 3.8432l-6.7745 0.64053c-0.22379 1.3127-0.34741 2.6622-0.34741 4.0386 0 1.3788 0.12285 2.7238 0.34741 4.0386l6.7745 0.64056c0.37825 1.3554 0.91896 2.6431 1.5959 3.8432l-4.3317 5.2437c1.5648 2.2089 3.4908 4.1457 5.6997 5.7105l5.2545-4.3426c1.2023 0.67835 2.485 1.2174 3.8432 1.5959l0.64053 6.7853c1.3123 0.22368 2.6626 0.33658 4.0386 0.33658s2.7155-0.11289 4.0278-0.33658l0.64053-6.7853c1.3582-0.37847 2.6409-0.91755 3.8432-1.5959l5.2545 4.3426c2.2088-1.5649 4.1348-3.5017 5.6997-5.7105l-4.3317-5.2437c0.67695-1.2001 1.2177-2.4878 1.5959-3.8432l6.7744-0.64056c0.22456-1.3148 0.34741-2.6598 0.34741-4.0386 0-1.3765-0.12361-2.726-0.34741-4.0386l-6.7744-0.64053c-0.37825-1.3554-0.91896-2.6431-1.5959-3.8432l4.3426-5.2437c-1.568-2.2146-3.507-4.1422-5.722-5.7101l-5.2437 4.3317c-1.2015-0.67776-2.486-1.2067-3.8432-1.585l-0.641-6.7853c-1.3123-0.22366-2.6518-0.34741-4.0278-0.34741zm0 14.776c5.0178 0 9.076 4.0691 9.076 9.0869s-4.0582 9.0869-9.076 9.0869-9.0869-4.0691-9.0869-9.0869 4.0691-9.0869 9.0869-9.0869z" fill="currentColor"/>
+            </svg>
+        </button>
+        
+        <div class="controls-container" id="controlsContainer">
+            <div class="transpose-control">
+                <label class="transpose-label">
+                    <span class="control-text" data-full="Transpose" data-short="Trans">Transpose</span>
+                    <select id="transposeSelect" class="transpose-select">
+                        <option value="12">+12</option>
+                        <option value="11">+11</option>
+                        <option value="10">+10</option>
+                        <option value="9">+9</option>
+                        <option value="8">+8</option>
+                        <option value="7">+7</option>
+                        <option value="6">+6</option>
+                        <option value="5">+5</option>
+                        <option value="4">+4</option>
+                        <option value="3">+3</option>
+                        <option value="2">+2</option>
+                        <option value="1">+1</option>
+                        <option value="0" selected>±0</option>
+                        <option value="-1">-1</option>
+                        <option value="-2">-2</option>
+                        <option value="-3">-3</option>
+                        <option value="-4">-4</option>
+                        <option value="-5">-5</option>
+                        <option value="-6">-6</option>
+                        <option value="-7">-7</option>
+                        <option value="-8">-8</option>
+                        <option value="-9">-9</option>
+                        <option value="-10">-10</option>
+                        <option value="-11">-11</option>
+                        <option value="-12">-12</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="scale-control">
+                <label class="scale-label">
+                    <span class="control-text">Scale</span>
+                    <select id="scaleSelect" class="scale-select">
+                        <option value="major" selected>Major</option>
+                        <option value="minor">Minor</option>
+                        <option value="ryukyu">Ryukyu</option>
+                        <option value="miyakobushi">Miyako</option>
+                        <option value="chinese">Chinese</option>
+                        <option value="bhairav">India</option>
+                        <option value="arabic">Arabic</option>
+                        <option value="blues">Blues</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="label-control">
+                <label class="label-label">
+                    <span class="control-text">Label</span>
+                    <select id="labelSelect" class="label-select">
+                        <option value="C/G" selected>C/G</option>
+                        <option value="ABC">ABC</option>
+                        <option value="Do/So">Do/So</option>
+                        <option value="DoReMi">DoReMi</option>
+                        <option value="ド/ソ">ド/ソ</option>
+                        <option value="ドレミ">ドレミ</option>
+                        <option value="स/प">स/प</option>
+                        <option value="स्वर">स्वर</option>
+                        <option value="off">OFF</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="snap-control">
+                <label class="snap-label">
+                    <span class="control-text">Snap</span>
+                    <select id="snapSelect" class="snap-select">
+                        <option value="off">OFF</option>
+                        <option value="semi">Semi</option>
+                        <option value="whole" selected>Whole</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+
+        <div class="instrument-wrapper">
+            <canvas id="canvas"></canvas>
+            <div class="pitch-labels" id="pitchLabels"></div>
+            <div class="instrument-controls" id="instrumentControls"></div>
+        </div>
+
+        <button id="startButton" class="start-button">Power</button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

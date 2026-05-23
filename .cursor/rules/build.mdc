@@ -29,8 +29,21 @@ alwaysApply: true
 | `-skip-android` / `-no-android` | Android ビルドをスキップ |
 | `-no-android-upload` | AAB ビルドのみ（Play アップロードなし） |
 
+## ソース分離（Web と iOS/Android で絶対に混ぜない）
+
+| ディレクトリ | 用途 | 主な JS |
+|---|---|---|
+| **`web-src/`** | FTP 公開・ローカル dev | `initAudio`（pre-native Web） |
+| **`native-src/`** | `native/store-web` 生成専用 | `ensureAudioReady` + Capacitor |
+| ルート `app.js` 等 | **ビルド成果のミラー**（`sync:web-root`） | 編集は `web-src/` のみ |
+
+- **編集**: Web は `web-src/`、iOS/Android 向け JS は `native-src/` のみ
+- **`build:store-web`**: `native-src/app.js` のみコピー（`web-src/app.js` は使わない）
+- **Scale/Label の HTML**: `web-src/index.html` を store-web の index 生成にも使用（UI だけ共有）
+- 検証: `bash scripts/verify-sources.sh`
+
 ## 固有設定
 
-- Web 対象: `index.html`, `style.css`, `app.js`, `sw.js`, `manifest.json`
+- Web デプロイ対象: `web-src/` の `index.html`, `style.css`, `app.js` + ルートの `sw.js`, `manifest.json`
 - iOS: `~/.apple-env`、単体は `native/ios/build.sh -cm "..."`
 - Play: `~/.google-env` + `.env` の `GOOGLE_PLAY_PACKAGE_NAME`、署名 `~/.android-env`

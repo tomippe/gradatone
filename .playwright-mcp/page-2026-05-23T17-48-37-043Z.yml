@@ -1,0 +1,85 @@
+- generic [ref=e2]:
+  - generic:
+    - heading "Gradatone StudioTomippe Apps" [level=1]:
+      - text: Gradatone
+      - img "StudioTomippe Apps"
+  - button "Toggle Settings" [ref=e3] [cursor=pointer]:
+    - img [ref=e4]
+  - option "+12(C)"
+  - option "+11(B)"
+  - option "+10(A#)"
+  - option "+9(A)"
+  - option "+8(G#)"
+  - option "+7(G)"
+  - option "+6(F#)"
+  - option "+5(F)"
+  - option "+4(E)"
+  - option "+3(D#)"
+  - option "+2(D)"
+  - option "+1(C#)"
+  - option "±0(C)" [selected]
+  - option "-1(B)"
+  - option "-2(A#)"
+  - option "-3(A)"
+  - option "-4(G#)"
+  - option "-5(G)"
+  - option "-6(F#)"
+  - option "-7(F)"
+  - option "-8(E)"
+  - option "-9(D#)"
+  - option "-10(D)"
+  - option "-11(C#)"
+  - option "-12(C)"
+  - option "Major" [selected]
+  - option "Minor"
+  - option "Ryukyu"
+  - option "Miyako"
+  - option "Chinese"
+  - option "India"
+  - option "Arabic"
+  - option "Blues"
+  - option "C/G" [selected]
+  - option "ABC"
+  - option "Do/So"
+  - option "DoReMi"
+  - option "ド/ソ"
+  - option "ドレミ"
+  - option "स/प"
+  - option "स्वर"
+  - option "OFF"
+  - option "OFF"
+  - option "Semi"
+  - option "Whole" [selected]
+  - generic:
+    - generic:
+      - generic: C4
+      - generic: G4
+      - generic: C5
+      - generic: G5
+      - generic: C6
+      - generic: G6
+    - combobox [ref=e8] [cursor=pointer]:
+      - option "Piano" [selected]
+      - option "Organ"
+      - option "Acoustic Guitar"
+      - option "Electric Guitar"
+      - option "Bass"
+      - option "Violin"
+      - option "Viola"
+      - option "Harp"
+      - option "Trumpet"
+      - option "Harmonica"
+      - option "Flute"
+      - option "Ocarina"
+      - option "Shakuhachi"
+      - option "Xylophone"
+      - option "Glockenspiel"
+      - option "Bell"
+      - option "Synth String"
+      - option "Pad"
+      - option "Cat"
+      - option "Beagle"
+      - option "Bulldog"
+      - option "Monkey"
+      - option "Add..."
+  - button "Power" [ref=e9] [cursor=pointer]

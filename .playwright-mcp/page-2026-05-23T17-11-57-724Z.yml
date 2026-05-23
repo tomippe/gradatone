@@ -1,0 +1,34 @@
+- generic [ref=e5]:
+  - banner [ref=e8]:
+    - navigation:
+      - generic:  
+  - iframe [active] [ref=e13]:
+    - main "App Store Connect" [ref=f1e2]:
+      - generic [ref=f1e13]:
+        - heading "App Store Connect" [level=2] [ref=f1e15]
+        - paragraph
+        - generic [ref=f1e16]:
+          - generic [ref=f1e19]:
+            - generic [ref=f1e22]:
+              - textbox "メールまたは電話番号" [ref=f1e23]: tomi@tomippe.jp
+              - generic: メールまたは電話番号
+            - generic [ref=f1e48]:
+              - textbox "パスワー⁠ド" [active] [ref=f1e49]
+              - generic: パスワー⁠ド
+          - button "サインイン" [disabled]:
+            - generic: 
+        - link "パスワードをお忘れですか？  新規ウィンドウで開きます。" [ref=f1e29] [cursor=pointer]:
+          - /url: https://iforgot.apple.com/password/verify/appleid
+          - text: パスワードをお忘れですか？ 
+          - generic [ref=f1e30]: 新規ウィンドウで開きます。
+  - generic [ref=e16]:
+    - link "Apple.com" [ref=e17] [cursor=pointer]:
+      - /url: http://www.apple.com
+    - list [ref=e20]:
+      - listitem [ref=e21]: Copyright © 2026 Apple Inc. All rights reserved.
+      - listitem [ref=e22]:
+        - link "サービス規約" [ref=e23] [cursor=pointer]:
+          - /url: /olympus/v1/terms/ASC
+      - listitem [ref=e24]:
+        - link "プライバシーポリシー" [ref=e25] [cursor=pointer]:
+          - /url: http://www.apple.com/jp/legal/privacy/

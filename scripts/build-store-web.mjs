@@ -3,6 +3,8 @@ import path from "node:path";
 import { execSync } from "node:child_process";
 
 const root = process.cwd();
+const webSrc = path.join(root, "web-src");
+const nativeSrc = path.join(root, "native-src");
 const outDir = path.join(root, "native", "store-web");
 const assetsDir = path.join(outDir, "assets");
 
@@ -22,6 +24,17 @@ function readVersion() {
   }
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
   return manifest.version || "1.0.0";
+}
+
+function assertNativeAppJs() {
+  const appPath = path.join(nativeSrc, "app.js");
+  const src = fs.readFileSync(appPath, "utf8");
+  if (!src.includes("isNativeCapacitor") || !src.includes("ensureAudioReady")) {
+    throw new Error("native-src/app.js に iOS 必須コードがありません（誤って web-src を指していないか確認）");
+  }
+  if (!src.includes("function isNativeCapacitor")) {
+    throw new Error("native-src/app.js が不正です");
+  }
 }
 
 /** Web 版と同じ PNG を優先（icon.svg からの再生成で上書きしない） */
@@ -90,8 +103,10 @@ function generateIconsFromSvg() {
   }
 }
 
-console.log("🔨 store-web をビルド中...");
-execSync("npm run sass:build", { cwd: root, stdio: "inherit" });
+console.log("🔨 store-web をビルド中（native-src のみ使用、web-src/app.js は使いません）...");
+assertNativeAppJs();
+
+execSync("npm run sass:build:native", { cwd: root, stdio: "inherit" });
 
 if (fs.existsSync(outDir)) {
   fs.rmSync(outDir, { recursive: true, force: true });
@@ -106,8 +121,8 @@ if (usedWebIcons) {
   generateIconsFromSvg();
 }
 
-copyFile(path.join(root, "style.css"), path.join(outDir, "style.css"));
-copyFile(path.join(root, "app.js"), path.join(outDir, "app.js"));
+copyFile(path.join(nativeSrc, "style.css"), path.join(outDir, "style.css"));
+copyFile(path.join(nativeSrc, "app.js"), path.join(outDir, "app.js"));
 copyFile(path.join(root, "gearGreen.svg"), path.join(outDir, "gearGreen.svg"));
 
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
@@ -123,7 +138,8 @@ try {
   console.warn("  ⚠️ apps-logo.svg の取得をスキップ");
 }
 
-let indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
+// Scale/Label は web-src/index.html と揃える（UI のみ共有）
+let indexHtml = fs.readFileSync(path.join(webSrc, "index.html"), "utf8");
 indexHtml = indexHtml.replace(
   'src="https://tomippe.jp/img/apps-logo.svg"',
   'src="./assets/apps-logo.svg"'
@@ -148,7 +164,6 @@ indexHtml = indexHtml.replace(
 
 fs.writeFileSync(path.join(outDir, "index.html"), indexHtml);
 
-// icon.svg から生成した場合のみルートへ戻す（Web 版 PNG の上書きを防ぐ）
 if (!usedWebIcons) {
   for (const name of ["icon-192.png", "icon-512.png", "favicon.png", "apple-touch-icon.png"]) {
     const generated = path.join(outDir, name);
@@ -159,4 +174,4 @@ if (!usedWebIcons) {
   }
 }
 
-console.log(`  ✓ native/store-web (v${version})`);
+console.log(`  ✓ native/store-web (v${version}) ← native-src/app.js`);

@@ -1,12 +1,15 @@
 {
   "name": "gradatone",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Seamless piano application",
   "scripts": {
-    "sass": "sass --watch style.scss:style.css --no-source-map",
-    "sass:build": "sass style.scss style.css --no-source-map",
+    "sass": "sass --watch web-src/style.scss:web-src/style.css --no-source-map",
+    "sass:build:web": "sass web-src/style.scss web-src/style.css --no-source-map",
+    "sass:build:native": "sass native-src/style.scss native-src/style.css --no-source-map",
+    "sass:build": "npm run sass:build:web && npm run sass:build:native",
+    "sync:web-root": "bash scripts/sync-web-root.sh",
     "build:store-web": "node scripts/build-store-web.mjs",
-    "serve": "python3 -m http.server 8080",
+    "serve": "npm run sync:web-root && python3 -m http.server 8080",
     "dev": "npm run sass"
   },
   "keywords": [

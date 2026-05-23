@@ -1,0 +1,2 @@
+{"sessionId":"ccffeb","hypothesisId":"A,E","location":"app.js:ensureAudioReady:entry","message":"ensureAudioReady called","data":{"fromUserGesture":false,"fromBFCache":false,"ctxState":"running","isRunning":true,"inFlight":false},"timestamp":1779559674999}
+{"sessionId":"ccffeb","hypothesisId":"A","location":"app.js:ensureAudioReady:earlyReturn","message":"early return isAudioRunning","data":{"btnHidden":true},"timestamp":1779559675000}

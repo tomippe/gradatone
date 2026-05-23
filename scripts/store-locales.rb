@@ -30,7 +30,7 @@ STORE_LOCALES = {
       - セーフエリアと下端 UI を端末表示に合わせて改善
       - タッチ位置と音程・ガイド線の一致を改善
       - 消音スイッチがオンのままでも演奏しやすく調整
-      - タッチを離したあと音が残る場合を修正
+      - 高速連打でも音が欠けにくく、応答を改善
       - 音階（インド・アラビアなど）と音名ラベルを復元
     TEXT
     support_url: "https://apps.tomippe.jp/gradatone/"
@@ -58,7 +58,7 @@ STORE_LOCALES = {
       - Safe area and bottom controls aligned with the device
       - Touch position now matches pitch and guide lines
       - Easier to hear audio when the Ring/Silent switch is on
-      - Fixed notes sometimes lingering after you lift your finger
+      - Faster taps register more reliably with lower latency
       - Restored scale list (including Indian and Arabic) and note labels
     TEXT
     support_url: "https://apps.tomippe.jp/gradatone/"
@@ -86,7 +86,7 @@ STORE_LOCALES = {
       - 安全区域与底部控件随设备显示优化
       - 触摸位置与音高、引导线一致
       - 静音开关开启时也更易听到声音
-      - 修复抬手后音符有时残留的问题
+      - 快速连按更易发声、延迟更低
       - 恢复音阶列表（含印度、阿拉伯等）与音名标签
     TEXT
     support_url: "https://apps.tomippe.jp/gradatone/"

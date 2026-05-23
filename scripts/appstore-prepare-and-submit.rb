@@ -262,6 +262,11 @@ end
 if options[:submit]
   abort "審査提出にはビルド紐付けが必要です（--metadata-only と併用不可）" if options[:metadata_only]
 
+  notes_script = File.expand_path("appstore-update-review-notes.rb", __dir__)
+  if File.file?(notes_script)
+    system("ruby", notes_script, "--version", version_string) || puts("  ⚠️ review notes update failed")
+  end
+
   submit_version(client, app_id, version_id, options[:platform])
   puts "✅ Submitted for App Review"
 else

@@ -39,11 +39,23 @@ source ~/.apple-env && source .env
 - パッケージ: `jp.tomippe.gradatone`
 - 掲載文言は `scripts/store-locales.rb` を `play-sync-listing.sh` で流用
 
+## スクリーンショット（`ss/iPhone/` → API）
+
+```bash
+bash scripts/prepare-iphone-screenshots.sh   # ss/*.png + ss/ipad/*.png
+./scripts/appstore-sync-listing.sh 1.2.3    # 3言語 × iPhone 6.7" + iPad 12.9"
+```
+
+素材: `ss/iPhone/01.mov` `02.mov` `03.jpeg`（1170×2532）→ 6.7" 1320×2868、iPad 2064×2752
+
+## 審査メモ（API）
+
+`docs/app-review-notes-en.txt` → `ruby scripts/appstore-update-review-notes.rb --version 1.2.3`
+
 ## Connect Web で人間が確認すること
 
-- アプリのプライバシー → データ収集「いいえ」（個人データを収集しない）
-- スクリーンショット（6.7" iPhone 必須、`ss/` 準備後）
-- 初回 IPA アップロード後 → ビルド選択 → 審査提出
+- **アプリのプライバシー** →「いいえ、データを収集しない」→ **公開**（API 非対応・初回必須）
+- 初回提出: `ruby scripts/appstore-prepare-and-submit.rb --version 1.2.3 --build-number 15 --submit`
 
 ## バージョン履歴（app-versions・WordPress）
 

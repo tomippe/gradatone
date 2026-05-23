@@ -1,0 +1,9 @@
+[      67ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://127.0.0.1:8080/app.js:2470
+[   31555ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://127.0.0.1:8080/app.js?v=1.2.4:2470
+[   35614ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://127.0.0.1:8080/app.js?v=1.2.4:2470
+[   47928ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ http://127.0.0.1:8080/app.js?v=1.2.4:3314
+[   47962ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ http://127.0.0.1:8080/app.js?v=1.2.4:3314
+[   47977ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ http://127.0.0.1:8080/app.js?v=1.2.4:3314
+[   47994ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ http://127.0.0.1:8080/app.js?v=1.2.4:3314
+[   48011ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ http://127.0.0.1:8080/app.js?v=1.2.4:3314
+[   59439ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://127.0.0.1:8080/app.js?v=1.2.4:2470

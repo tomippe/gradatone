@@ -1,0 +1,154 @@
+[    1532ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[   30408ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[   34758ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[   60290ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[   66854ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[   88728ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[   92356ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[   94758ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[  193533ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[  322474ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[  325074ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[  335963ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[  415390ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[  421403ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[  423023ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  423076ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  477490ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[  501249ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  551454ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[  553449ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  571869ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:2372
+[  582323ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  583417ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  586367ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  586384ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  586740ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  586752ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  586818ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  586835ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  587668ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  587687ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  587702ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  588985ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  589001ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  589052ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  589068ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  589184ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  589425ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  589450ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  589467ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  589573ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  589641ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  589651ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  589667ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  590154ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  590173ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  590186ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  590202ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  590243ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  590268ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  591868ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  591894ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  592165ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  592186ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  593201ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  593224ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  593242ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  593255ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  593267ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  593284ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  593302ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  593318ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  596625ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  599786ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  599805ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  599826ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  599835ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  599853ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  599868ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  599885ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  599902ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  599987ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600018ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600035ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600052ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600068ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600085ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600169ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600187ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600203ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600225ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600239ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600251ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600269ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600285ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600576ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600591ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600606ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600618ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600635ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600652ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600669ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  600686ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  601152ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  601436ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  601751ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  602558ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  602568ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  602585ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  602601ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  602628ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603041ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603068ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603704ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603725ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603737ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603753ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603769ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603786ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603803ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603821ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603836ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603922ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603938ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603953ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603969ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  603986ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604003ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604137ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604155ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604170ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604186ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604203ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604227ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604320ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604353ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604386ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604403ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604419ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604520ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604538ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604554ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604569ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604586ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604603ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604619ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604720ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  604738ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  628280ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  628878ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  628896ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  637079ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  637097ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  637347ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  637563ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  637597ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  637812ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  637831ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  639803ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  640013ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  640030ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  640047ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[  640241ms] [ERROR] ❌ updateTouchSound: No active touch for 0, elapsed: N/As @ https://apps.tomippe.jp/gradatone/app.js:3205
+[ 1383571ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ https://apps.tomippe.jp/gradatone/app.js:1961
