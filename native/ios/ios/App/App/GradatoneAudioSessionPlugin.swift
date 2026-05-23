@@ -3,13 +3,44 @@ import Capacitor
 import AVFoundation
 
 enum GradatoneAudioSession {
+    private static var routeChangeObserver: NSObjectProtocol?
+
+    /// 消音スイッチ ON でも Web Audio が鳴るよう .playback を維持する
     static func activatePlaybackSession() {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playback, mode: .default, options: [])
+            try applyPlaybackCategory(session)
             try session.setActive(true, options: [])
         } catch {
-            NSLog("GradatoneAudioSession: \(error.localizedDescription)")
+            NSLog("GradatoneAudioSession (first try): \(error.localizedDescription)")
+            do {
+                try session.setActive(false, options: .notifyOthersOnDeactivation)
+                try applyPlaybackCategory(session)
+                try session.setActive(true, options: [])
+            } catch {
+                NSLog("GradatoneAudioSession (retry): \(error.localizedDescription)")
+            }
+        }
+        installRouteChangeObserverIfNeeded()
+    }
+
+    private static func applyPlaybackCategory(_ session: AVAudioSession) throws {
+        // .ambient / .soloAmbient だと消音スイッチで無音になる
+        try session.setCategory(
+            .playback,
+            mode: .default,
+            options: [.defaultToSpeaker, .allowBluetoothA2DP]
+        )
+    }
+
+    private static func installRouteChangeObserverIfNeeded() {
+        guard routeChangeObserver == nil else { return }
+        routeChangeObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { _ in
+            activatePlaybackSession()
         }
     }
 }

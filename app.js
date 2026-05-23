@@ -696,12 +696,17 @@ function isNativeCapacitor() {
 async function configureNativeAudioSession() {
     if (!isNativeCapacitor()) return;
     try {
-        const plugin = window.Capacitor.Plugins && window.Capacitor.Plugins.GradatoneAudioSession;
+        const cap = window.Capacitor;
+        const plugin =
+            (cap && cap.Plugins && cap.Plugins.GradatoneAudioSession) ||
+            (typeof cap?.registerPlugin === 'function'
+                ? cap.registerPlugin('GradatoneAudioSession')
+                : null);
         if (plugin && typeof plugin.configure === 'function') {
             await plugin.configure();
         }
     } catch (e) {
-        // Native session setup is best-effort
+        console.warn('GradatoneAudioSession configure:', e);
     }
 }
 
@@ -847,9 +852,18 @@ class Gradatone {
     }
 
     getLabelEdgeInset() {
-        const raw = getComputedStyle(document.documentElement).getPropertyValue('--label-edge-inset').trim();
-        const parsed = parseFloat(raw);
-        return Number.isFinite(parsed) ? parsed : 20;
+        const root = document.documentElement;
+        const style = getComputedStyle(root);
+        const base = parseFloat(style.getPropertyValue('--label-edge-inset-base')) || 20;
+        const safeTop = parseFloat(style.getPropertyValue('--safe-top')) || 0;
+        const safeRight = parseFloat(style.getPropertyValue('--safe-right')) || 0;
+        const safeBottom = parseFloat(style.getPropertyValue('--safe-bottom')) || 0;
+        const safeLeft = parseFloat(style.getPropertyValue('--safe-left')) || 0;
+        const uiMin = parseFloat(style.getPropertyValue('--ui-inset-min')) || 12;
+        if (this.isPortrait) {
+            return Math.max(base, uiMin, safeTop, safeBottom);
+        }
+        return Math.max(base, uiMin, safeLeft, safeRight);
     }
 
     setupCanvas() {
@@ -1710,7 +1724,9 @@ class Gradatone {
         });
 
         // Touch events
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        this.canvas.addEventListener('touchstart', (e) => {
+            void this.handleTouchStart(e);
+        }, { passive: false });
         this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
         this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
         this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
@@ -2006,10 +2022,12 @@ class Gradatone {
     }
 
     async createAudioGraph() {
+        await configureNativeAudioSession();
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
             sampleRate: 48000,
             latencyHint: 'interactive'
         });
+        await configureNativeAudioSession();
         this.attachAudioStateListener();
 
         this.masterGain = this.audioContext.createGain();
@@ -2041,6 +2059,7 @@ class Gradatone {
         if (this.audioContext && this.audioContext.state === 'suspended') {
             await this.audioContext.resume();
         }
+        await configureNativeAudioSession();
     }
 
     isAudioRunning() {
@@ -2086,6 +2105,8 @@ class Gradatone {
         if (fromUserGesture && this.audioContext && this.audioContext.state !== 'running') {
             await this.recreateAudioContext();
         }
+
+        await configureNativeAudioSession();
 
         if (this.isAudioRunning()) {
             this.hidePowerButton();
@@ -2424,6 +2445,9 @@ class Gradatone {
 
     createTouchSound(touchId, frequency, layerIndex = 0, clientX = null, clientY = null) {
         if (!this.audioContext) return;
+        if (isNativeCapacitor()) {
+            void configureNativeAudioSession();
+        }
 
         const now = this.audioContext.currentTime;
         const layer = this.layers[layerIndex];
@@ -3547,11 +3571,13 @@ class Gradatone {
     }
 
     // Touch event handlers
-    handleTouchStart(e) {
+    async handleTouchStart(e) {
         e.preventDefault();
-        if (!this.audioContext) {
-            return; // Wait for audio initialization
+        const ready = await this.ensureAudioReady({ fromUserGesture: true });
+        if (!ready || !this.audioContext) {
+            return;
         }
+        await configureNativeAudioSession();
 
         const rect = this.canvas.getBoundingClientRect();
 
@@ -3769,8 +3795,46 @@ class Gradatone {
     }
 }
 
+/** env(safe-area-inset-*) を CSS 変数へ反映（Capacitor で 0 になる場合の補正含む） */
+function installSafeAreaInsets() {
+    const update = () => {
+        const root = document.documentElement;
+        const probe = document.createElement('div');
+        probe.setAttribute(
+            'style',
+            'position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left)'
+        );
+        document.body.appendChild(probe);
+        const cs = getComputedStyle(probe);
+        let top = parseFloat(cs.paddingTop) || 0;
+        let right = parseFloat(cs.paddingRight) || 0;
+        let bottom = parseFloat(cs.paddingBottom) || 0;
+        let left = parseFloat(cs.paddingLeft) || 0;
+        probe.remove();
+
+        const vv = window.visualViewport;
+        if (vv) {
+            top = Math.max(top, vv.offsetTop);
+            left = Math.max(left, vv.offsetLeft);
+            right = Math.max(right, window.innerWidth - vv.width - vv.offsetLeft);
+            bottom = Math.max(bottom, window.innerHeight - vv.height - vv.offsetTop);
+        }
+
+        root.style.setProperty('--safe-top', `${top}px`);
+        root.style.setProperty('--safe-right', `${right}px`);
+        root.style.setProperty('--safe-bottom', `${bottom}px`);
+        root.style.setProperty('--safe-left', `${left}px`);
+    };
+
+    update();
+    window.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('scroll', update);
+}
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
+    installSafeAreaInsets();
     new Gradatone();
 });
 
