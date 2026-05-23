@@ -5,11 +5,13 @@
 - Android は `native/android/build.sh` → Google Play（TWA・本番 URL を表示）
 
 ```bash
-npm run build:store-web
-cd native/ios && npm install && npx cap add ios   # 初回のみ
+# 統合（Web + iOS + Android）
+./build.sh -cm "メッセージ"
+
+# iOS のみ
 ./native/ios/build.sh -cm "TestFlight"
 
-# Android（初回: Play Console で jp.tomippe.gradatone を作成、署名設定後）
+# Android のみ
 ./native/android/build.sh -skip-react
 ```
 

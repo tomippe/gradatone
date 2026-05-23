@@ -211,5 +211,7 @@ if ! $NO_VERUP; then
   version_save_next "$VERSION" "$ROOT_DIR/version.txt"
 fi
 
-cd "$ROOT_DIR"
-git_commit_build "$VERSION" "$COMMIT_MSG"
+if [ -n "$COMMIT_MSG" ]; then
+  cd "$ROOT_DIR"
+  git_commit_build "$VERSION" "$COMMIT_MSG"
+fi
