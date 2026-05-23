@@ -22,7 +22,7 @@
     --label-edge-inset-base: 1.25rem;
     --ui-top: 0.75rem;
     --ui-right: 0.75rem;
-    --ui-bottom: 0.5rem;
+    --ui-bottom: 0.75rem;
 }
 
 /* 画面端（左右・上下のセーフゾーン含む）までグラデを敷く */
@@ -145,7 +145,7 @@ body.portrait .title-overlay {
 /* Landscape: title at bottom (above pitch labels) */
 body.landscape .title-overlay {
     top: auto;
-    bottom: 5rem;
+    bottom: calc(var(--safe-bottom) + 5rem);
 }
 
 .logo-overlay {
@@ -253,10 +253,11 @@ body.landscape .title-overlay {
 
 /* Portrait mode - right position */
 .pitch-labels.portrait .label-right {
-    left: calc(100% - 1.6rem);
+    left: auto;
+    right: calc(var(--safe-right) + 0.5rem);
     top: 0;
     transform: translate(0, -50%);
-    text-align: left;
+    text-align: right;
 }
 
 /* Portrait mode - left position */

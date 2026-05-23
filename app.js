@@ -693,16 +693,34 @@ function isNativeCapacitor() {
     return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 }
 
+function getGradatoneAudioSessionPlugin() {
+    const cap = window.Capacitor;
+    if (!cap) return null;
+    return (
+        (cap.Plugins && cap.Plugins.GradatoneAudioSession) ||
+        (typeof cap.registerPlugin === 'function'
+            ? cap.registerPlugin('GradatoneAudioSession')
+            : null)
+    );
+}
+
+async function waitForCapacitorBridge(maxMs = 5000) {
+    if (!isNativeCapacitor()) return;
+    const deadline = Date.now() + maxMs;
+    while (Date.now() < deadline) {
+        if (getGradatoneAudioSessionPlugin()) return;
+        await new Promise((r) => setTimeout(r, 50));
+    }
+}
+
 async function configureNativeAudioSession() {
     if (!isNativeCapacitor()) return;
     try {
-        const cap = window.Capacitor;
-        const plugin =
-            (cap && cap.Plugins && cap.Plugins.GradatoneAudioSession) ||
-            (typeof cap?.registerPlugin === 'function'
-                ? cap.registerPlugin('GradatoneAudioSession')
-                : null);
+        const plugin = getGradatoneAudioSessionPlugin();
         if (plugin && typeof plugin.configure === 'function') {
+            await plugin.configure();
+            // WebKit が AudioContext 後に ambient に戻すことがあるため直後にも再適用
+            await new Promise((r) => setTimeout(r, 0));
             await plugin.configure();
         }
     } catch (e) {
@@ -798,6 +816,8 @@ class Gradatone {
             this.updateLayerUI(); // Update layer control positions
             this.updateControlLabels(); // Update control labels based on screen size
         });
+
+        window.__gradatone = this;
     }
 
     // Calculate maximum layers based on screen aspect ratio
@@ -864,6 +884,17 @@ class Gradatone {
             return Math.max(base, uiMin, safeTop, safeBottom);
         }
         return Math.max(base, uiMin, safeLeft, safeRight);
+    }
+
+    /** 音階ラベル・ガイド線で共通の座標（ratio 0=低音端, 1=高音端） */
+    getPlayablePositionFromRatio(ratio) {
+        const edgeInset = this.getLabelEdgeInset();
+        if (this.isPortrait) {
+            const span = Math.max(0, this.canvasHeight - edgeInset * 2);
+            return edgeInset + (1 - ratio) * span;
+        }
+        const span = Math.max(0, this.canvasWidth - edgeInset * 2);
+        return edgeInset + ratio * span;
     }
 
     setupCanvas() {
@@ -989,8 +1020,8 @@ class Gradatone {
                 const ratio = semitone / totalSemitones;
 
                 if (this.isPortrait) {
-                    // Portrait: horizontal lines across all layers, gradient per layer (left/right fade within each layer)
-                    const y = (1 - ratio) * this.canvasHeight;
+                    // Portrait: horizontal lines（ラベル位置と同じ inset 付き座標）
+                    const y = this.getPlayablePositionFromRatio(ratio);
                     
                     // Draw line segment for each layer with its own gradient
                     for (let layerIndex = 0; layerIndex < totalLayers; layerIndex++) {
@@ -1014,8 +1045,8 @@ class Gradatone {
                         this.ctx.stroke();
                     }
                 } else {
-                    // Landscape: vertical lines across all layers, gradient per layer (top/bottom fade within each layer)
-                    const x = ratio * this.canvasWidth;
+                    // Landscape: vertical lines（ラベル位置と同じ inset 付き座標）
+                    const x = this.getPlayablePositionFromRatio(ratio);
                     
                     // Draw line segment for each layer with its own gradient
                     for (let layerIndex = 0; layerIndex < totalLayers; layerIndex++) {
@@ -1270,18 +1301,7 @@ class Gradatone {
                 const displayLabel = this.getDisplayLabel(noteName, labelType);
 
                 const ratio = semitone / totalSemitones;
-                const edgeInset = this.getLabelEdgeInset();
-
-                let position;
-                if (this.isPortrait) {
-                    // Portrait: invert so high frequencies are at top (inset from safe UI edges)
-                    const span = Math.max(0, this.canvasHeight - edgeInset * 2);
-                    position = edgeInset + (1 - ratio) * span;
-                } else {
-                    // Landscape: left to right
-                    const span = Math.max(0, this.canvasWidth - edgeInset * 2);
-                    position = edgeInset + ratio * span;
-                }
+                const position = this.getPlayablePositionFromRatio(ratio);
 
                 labels.push({
                     name: is2NoteMode ? `${displayLabel}${octave}` : displayLabel,
@@ -2007,6 +2027,7 @@ class Gradatone {
             if (!this.audioContext) return;
             const state = this.audioContext.state;
             if (state === 'running') {
+                void configureNativeAudioSession();
                 this.hidePowerButton();
                 return;
             }
@@ -3795,47 +3816,126 @@ class Gradatone {
     }
 }
 
-/** env(safe-area-inset-*) を CSS 変数へ反映（Capacitor で 0 になる場合の補正含む） */
-function installSafeAreaInsets() {
-    const update = () => {
-        const root = document.documentElement;
-        const probe = document.createElement('div');
-        probe.setAttribute(
-            'style',
-            'position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left)'
-        );
-        document.body.appendChild(probe);
-        const cs = getComputedStyle(probe);
-        let top = parseFloat(cs.paddingTop) || 0;
-        let right = parseFloat(cs.paddingRight) || 0;
-        let bottom = parseFloat(cs.paddingBottom) || 0;
-        let left = parseFloat(cs.paddingLeft) || 0;
-        probe.remove();
+function readCssEnvSafeAreaInsets() {
+    const probe = document.createElement('div');
+    probe.setAttribute(
+        'style',
+        'position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left)'
+    );
+    document.body.appendChild(probe);
+    const cs = getComputedStyle(probe);
+    const insets = {
+        top: parseFloat(cs.paddingTop) || 0,
+        right: parseFloat(cs.paddingRight) || 0,
+        bottom: parseFloat(cs.paddingBottom) || 0,
+        left: parseFloat(cs.paddingLeft) || 0
+    };
+    probe.remove();
+    return insets;
+}
 
-        const vv = window.visualViewport;
-        if (vv) {
-            top = Math.max(top, vv.offsetTop);
-            left = Math.max(left, vv.offsetLeft);
-            right = Math.max(right, window.innerWidth - vv.width - vv.offsetLeft);
-            bottom = Math.max(bottom, window.innerHeight - vv.height - vv.offsetTop);
+function applySafeAreaInsets(insets) {
+    const root = document.documentElement;
+    root.style.setProperty('--safe-top', `${insets.top}px`);
+    root.style.setProperty('--safe-right', `${insets.right}px`);
+    root.style.setProperty('--safe-bottom', `${insets.bottom}px`);
+    root.style.setProperty('--safe-left', `${insets.left}px`);
+}
+
+function mergeSafeAreaInsets(a, b) {
+    return {
+        top: Math.max(a.top, b.top),
+        right: Math.max(a.right, b.right),
+        bottom: Math.max(a.bottom, b.bottom),
+        left: Math.max(a.left, b.left)
+    };
+}
+
+async function fetchNativeSafeAreaInsets() {
+    if (!isNativeCapacitor()) return null;
+    try {
+        const plugin = getGradatoneAudioSessionPlugin();
+        if (!plugin || typeof plugin.getSafeAreaInsets !== 'function') return null;
+        const result = await plugin.getSafeAreaInsets();
+        return {
+            top: Number(result.top) || 0,
+            right: Number(result.right) || 0,
+            bottom: Number(result.bottom) || 0,
+            left: Number(result.left) || 0
+        };
+    } catch (e) {
+        console.warn('getSafeAreaInsets:', e);
+        return null;
+    }
+}
+
+function onSafeAreaInsetsUpdated() {
+    const app = window.__gradatone;
+    if (!app) return;
+    app.setupPitchLabels();
+    app.drawGuideLines();
+}
+
+/** env(safe-area-inset-*) + ネイティブ inset を CSS 変数へ反映 */
+function installSafeAreaInsets() {
+    const update = async () => {
+        let insets = readCssEnvSafeAreaInsets();
+
+        if (isNativeCapacitor()) {
+            const native = await fetchNativeSafeAreaInsets();
+            if (native) {
+                insets = mergeSafeAreaInsets(insets, native);
+            }
+        } else {
+            const vv = window.visualViewport;
+            if (vv) {
+                insets = mergeSafeAreaInsets(insets, {
+                    top: vv.offsetTop,
+                    left: vv.offsetLeft,
+                    right: Math.max(0, window.innerWidth - vv.width - vv.offsetLeft),
+                    bottom: Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+                });
+            }
         }
 
-        root.style.setProperty('--safe-top', `${top}px`);
-        root.style.setProperty('--safe-right', `${right}px`);
-        root.style.setProperty('--safe-bottom', `${bottom}px`);
-        root.style.setProperty('--safe-left', `${left}px`);
+        applySafeAreaInsets(insets);
+        onSafeAreaInsetsUpdated();
     };
 
-    update();
-    window.addEventListener('resize', update);
-    window.visualViewport?.addEventListener('resize', update);
-    window.visualViewport?.addEventListener('scroll', update);
+    void update();
+    window.addEventListener('resize', () => void update());
+    window.visualViewport?.addEventListener('resize', () => void update());
+    window.visualViewport?.addEventListener('scroll', () => void update());
+    window.addEventListener('gradatone-safe-area', () => void update());
 }
 
 // Initialize app
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     installSafeAreaInsets();
+    await waitForCapacitorBridge();
+    await configureNativeAudioSession();
+
+    if (isNativeCapacitor()) {
+        const appPlugin = window.Capacitor?.Plugins?.App;
+        if (appPlugin && typeof appPlugin.addListener === 'function') {
+            appPlugin.addListener('appStateChange', ({ isActive }) => {
+                if (isActive) {
+                    void configureNativeAudioSession();
+                    void fetchNativeSafeAreaInsets().then((native) => {
+                        if (native) {
+                            applySafeAreaInsets(
+                                mergeSafeAreaInsets(readCssEnvSafeAreaInsets(), native)
+                            );
+                            onSafeAreaInsetsUpdated();
+                        }
+                    });
+                }
+            });
+        }
+    }
+
     new Gradatone();
+    await configureNativeAudioSession();
 });
 
 // Register Service Worker for PWA (not in Capacitor native shell)

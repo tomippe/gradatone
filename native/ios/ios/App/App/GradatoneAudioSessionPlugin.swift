@@ -33,11 +33,21 @@ enum GradatoneAudioSession {
         )
     }
 
+    private static var mediaServicesResetObserver: NSObjectProtocol?
+
     private static func installRouteChangeObserverIfNeeded() {
         guard routeChangeObserver == nil else { return }
         routeChangeObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.routeChangeNotification,
             object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { _ in
+            activatePlaybackSession()
+        }
+
+        mediaServicesResetObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification,
+            object: nil,
             queue: .main
         ) { _ in
             activatePlaybackSession()
@@ -50,7 +60,8 @@ public class GradatoneAudioSessionPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "GradatoneAudioSessionPlugin"
     public let jsName = "GradatoneAudioSession"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getSafeAreaInsets", returnType: CAPPluginReturnPromise)
     ]
 
     private static var interruptionObserver: NSObjectProtocol?
@@ -63,6 +74,31 @@ public class GradatoneAudioSessionPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func configure(_ call: CAPPluginCall) {
         GradatoneAudioSession.activatePlaybackSession()
         call.resolve()
+    }
+
+    @objc func getSafeAreaInsets(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            let insets = Self.currentSafeAreaInsets(from: self?.bridge?.viewController?.view)
+            call.resolve([
+                "top": Double(insets.top),
+                "right": Double(insets.right),
+                "bottom": Double(insets.bottom),
+                "left": Double(insets.left)
+            ])
+        }
+    }
+
+    static func currentSafeAreaInsets(from view: UIView?) -> UIEdgeInsets {
+        if let view = view {
+            return view.safeAreaInsets
+        }
+        if let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow) {
+            return window.safeAreaInsets
+        }
+        return .zero
     }
 
     private static func installInterruptionObserverIfNeeded() {
