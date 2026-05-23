@@ -689,6 +689,22 @@ const NOTE_LABELS = {
     'B': { eng: 'B', abc: 'B', sol: 'Ti', jp: 'シ', svara: 'नि' }
 };
 
+function isNativeCapacitor() {
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+
+async function configureNativeAudioSession() {
+    if (!isNativeCapacitor()) return;
+    try {
+        const plugin = window.Capacitor.Plugins && window.Capacitor.Plugins.GradatoneAudioSession;
+        if (plugin && typeof plugin.configure === 'function') {
+            await plugin.configure();
+        }
+    } catch (e) {
+        // Native session setup is best-effort
+    }
+}
+
 class Gradatone {
     constructor() {
         this.audioContext = null;
@@ -828,6 +844,12 @@ class Gradatone {
             this.updateLayerUI();
             this.saveLayerConfig(); // Save to localStorage
         }
+    }
+
+    getLabelEdgeInset() {
+        const raw = getComputedStyle(document.documentElement).getPropertyValue('--label-edge-inset').trim();
+        const parsed = parseFloat(raw);
+        return Number.isFinite(parsed) ? parsed : 20;
     }
 
     setupCanvas() {
@@ -1234,14 +1256,17 @@ class Gradatone {
                 const displayLabel = this.getDisplayLabel(noteName, labelType);
 
                 const ratio = semitone / totalSemitones;
+                const edgeInset = this.getLabelEdgeInset();
 
                 let position;
                 if (this.isPortrait) {
-                    // Portrait: invert so high frequencies are at top
-                    position = (1 - ratio) * this.canvasHeight;
+                    // Portrait: invert so high frequencies are at top (inset from safe UI edges)
+                    const span = Math.max(0, this.canvasHeight - edgeInset * 2);
+                    position = edgeInset + (1 - ratio) * span;
                 } else {
                     // Landscape: left to right
-                    position = ratio * this.canvasWidth;
+                    const span = Math.max(0, this.canvasWidth - edgeInset * 2);
+                    position = edgeInset + ratio * span;
                 }
 
                 labels.push({
@@ -1581,24 +1606,11 @@ class Gradatone {
     }
 
     setupEventListeners() {
-        // Initialize audio on any user interaction (capture phase, before stopPropagation)
-        document.addEventListener('touchstart', async () => {
-            if (!this.audioContext) {
-                await this.initAudio();
-            } else if (this.audioContext.state === 'suspended') {
-                await this.resumeAudio();
-            }
-        }, { capture: true, passive: true, once: false });
+        const resumeFromGesture = () => this.ensureAudioReady({ fromUserGesture: true });
 
-        document.addEventListener('click', async () => {
-            if (!this.audioContext) {
-                await this.initAudio();
-            } else if (this.audioContext.state === 'suspended') {
-                await this.resumeAudio();
-            }
-        }, { capture: true, once: false });
+        document.addEventListener('touchstart', resumeFromGesture, { capture: true, passive: true, once: false });
+        document.addEventListener('click', resumeFromGesture, { capture: true, once: false });
 
-        // Start button - initialize or resume audio
         this.startButton.addEventListener('touchstart', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -1607,24 +1619,20 @@ class Gradatone {
         this.startButton.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
-
-            if (!this.audioContext) {
-                await this.initAudio();
-            } else if (this.audioContext.state === 'suspended') {
-                await this.resumeAudio();
-            }
+            await this.ensureAudioReady({ fromUserGesture: true });
         });
 
-        // Auto-recover audio when returning from task switch / BFCache / window focus
-        const handleVisibleAgain = () => {
+        const handleVisibleAgain = (event) => {
             if (document.hidden) return;
-            if (!this.audioContext) return;
-            this.tryAutoResumeOnVisible();
+            const fromBFCache = event && event.persisted;
+            this.ensureAudioReady({ fromUserGesture: false, fromBFCache });
         };
 
-        document.addEventListener('visibilitychange', handleVisibleAgain);
+        document.addEventListener('visibilitychange', () => handleVisibleAgain());
         window.addEventListener('pageshow', handleVisibleAgain);
-        window.addEventListener('focus', handleVisibleAgain);
+        window.addEventListener('focus', () => handleVisibleAgain());
+
+        this.setupCapacitorLifecycle();
 
         // Transpose select - prevent touch/click propagation
         this.transposeSelect.addEventListener('touchstart', (e) => {
@@ -1905,7 +1913,7 @@ class Gradatone {
 
         if (this.isPortrait) {
             controlDiv.style.left = `${centerPosition}%`;
-            controlDiv.style.bottom = '1rem';
+            controlDiv.style.bottom = '0.5rem';
             controlDiv.style.top = 'auto';
             controlDiv.style.right = 'auto';
             controlDiv.style.transform = 'translateX(-50%)';
@@ -1935,89 +1943,169 @@ class Gradatone {
     }
 
 
-    async initAudio() {
-        if (this.audioContext) return;
+    setupCapacitorLifecycle() {
+        if (!isNativeCapacitor()) return;
+        const App = window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+        if (!App || typeof App.addListener !== 'function') return;
+        App.addListener('appStateChange', ({ isActive }) => {
+            if (isActive) {
+                this.ensureAudioReady({ fromUserGesture: false });
+            }
+        });
+    }
 
-        // Create AudioContext with standard sample rate for better recording compatibility
+    releaseAllActiveTouchSounds() {
+        const touchIds = Array.from(this.activeTouches.keys());
+        touchIds.forEach((touchId) => {
+            try {
+                this.stopTouchSound(touchId);
+            } catch (e) {
+                // Best-effort cleanup
+            }
+        });
+    }
+
+    async destroyAudioContext() {
+        this._audioStateListenerAttached = false;
+        if (!this.audioContext) return;
+        this.releaseAllActiveTouchSounds();
+        const ctx = this.audioContext;
+        this.audioContext = null;
+        this.masterGain = null;
+        this.masterCompressor = null;
+        this.softClipper = null;
+        this.outputGain = null;
+        if (ctx.state !== 'closed') {
+            try {
+                await ctx.close();
+            } catch (e) {
+                // Already closed on some platforms
+            }
+        }
+    }
+
+    attachAudioStateListener() {
+        if (!this.audioContext || this._audioStateListenerAttached) return;
+        this._audioStateListenerAttached = true;
+        this.audioContext.addEventListener('statechange', () => {
+            if (!this.audioContext) return;
+            const state = this.audioContext.state;
+            if (state === 'running') {
+                this.hidePowerButton();
+                return;
+            }
+            if (state === 'closed') {
+                this.releaseAllActiveTouchSounds();
+                this.showPowerButton();
+                return;
+            }
+            if (state === 'suspended' || state === 'interrupted') {
+                this.showPowerButton();
+            }
+        });
+    }
+
+    async createAudioGraph() {
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
-            sampleRate: 48000,  // Standard rate for mobile recording
+            sampleRate: 48000,
             latencyHint: 'interactive'
         });
-        this.hidePowerButton();
+        this.attachAudioStateListener();
 
-        // Create master gain before compressor to reduce input level
         this.masterGain = this.audioContext.createGain();
-        this.masterGain.gain.setValueAtTime(0.4, this.audioContext.currentTime); // Optimized input gain
+        this.masterGain.gain.setValueAtTime(0.4, this.audioContext.currentTime);
 
-        // Create compressor to prevent clipping/distortion
         this.masterCompressor = this.audioContext.createDynamicsCompressor();
-        this.masterCompressor.threshold.setValueAtTime(-24, this.audioContext.currentTime); // Lower threshold for chords
-        this.masterCompressor.knee.setValueAtTime(10, this.audioContext.currentTime); // Softer knee for smoother compression
-        this.masterCompressor.ratio.setValueAtTime(8, this.audioContext.currentTime); // Moderate ratio for natural sound
-        this.masterCompressor.attack.setValueAtTime(0.001, this.audioContext.currentTime); // Faster attack for transients
-        this.masterCompressor.release.setValueAtTime(0.15, this.audioContext.currentTime); // Faster release
+        this.masterCompressor.threshold.setValueAtTime(-24, this.audioContext.currentTime);
+        this.masterCompressor.knee.setValueAtTime(10, this.audioContext.currentTime);
+        this.masterCompressor.ratio.setValueAtTime(8, this.audioContext.currentTime);
+        this.masterCompressor.attack.setValueAtTime(0.001, this.audioContext.currentTime);
+        this.masterCompressor.release.setValueAtTime(0.15, this.audioContext.currentTime);
 
-        // Create soft clipper (WaveShaper)
         this.softClipper = this.audioContext.createWaveShaper();
-        this.softClipper.curve = makeDistortionCurve(0); // Amount is unused in tanh implementation
+        this.softClipper.curve = makeDistortionCurve(0);
         this.softClipper.oversample = '4x';
 
-        // Create output gain after compressor for final volume control
         this.outputGain = this.audioContext.createGain();
-        this.outputGain.gain.setValueAtTime(1.0, this.audioContext.currentTime); // Unity gain output
+        this.outputGain.gain.setValueAtTime(1.0, this.audioContext.currentTime);
 
-        // Connect: masterGain -> compressor -> softClipper -> outputGain -> destination
         this.masterGain.connect(this.masterCompressor);
         this.masterCompressor.connect(this.softClipper);
         this.softClipper.connect(this.outputGain);
         this.outputGain.connect(this.audioContext.destination);
-
-        // Resume context if suspended
-        if (this.audioContext.state === 'suspended') {
-            await this.audioContext.resume();
-        }
-
-        // Check if audio is muted and show alert
-        setTimeout(() => {
-            if (this.audioContext.state === 'suspended') {
-                alert('Audio is suspended. Please check your device volume and mute settings.');
-            }
-        }, 1000);
     }
 
-    async resumeAudio() {
-        if (!this.audioContext || this.audioContext.state !== 'suspended') return;
-
-        await this.audioContext.resume();
-        this.hidePowerButton();
-
-        // Check if resume was successful
-        setTimeout(() => {
-            if (this.audioContext.state === 'suspended') {
-                alert('Audio is suspended. Please check your device volume and mute settings.');
-            }
-        }, 500);
+    async recreateAudioContext() {
+        await this.destroyAudioContext();
+        await this.createAudioGraph();
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            await this.audioContext.resume();
+        }
     }
 
-    async tryAutoResumeOnVisible() {
-        if (!this.audioContext) return;
-        if (this.audioContext.state === 'running') {
-            this.hidePowerButton();
-            return;
-        }
-        try {
-            await this.audioContext.resume();
-        } catch (e) {
-            // Interrupted sessions (phone call, Siri, etc.) may reject without a gesture
-        }
-        setTimeout(() => {
-            if (!this.audioContext) return;
-            if (this.audioContext.state === 'running') {
+    isAudioRunning() {
+        return !!(this.audioContext && this.audioContext.state === 'running');
+    }
+
+    scheduleAudioUiCheck() {
+        window.setTimeout(() => {
+            if (this.isAudioRunning()) {
                 this.hidePowerButton();
             } else {
                 this.showPowerButton();
             }
         }, 200);
+    }
+
+    async ensureAudioReady({ fromUserGesture = false, fromBFCache = false } = {}) {
+        await configureNativeAudioSession();
+
+        if (fromBFCache && this.audioContext) {
+            await this.recreateAudioContext();
+            this.scheduleAudioUiCheck();
+            return this.isAudioRunning();
+        }
+
+        if (!this.audioContext || this.audioContext.state === 'closed') {
+            await this.createAudioGraph();
+        }
+
+        if (!this.audioContext) {
+            this.showPowerButton();
+            return false;
+        }
+
+        if (this.audioContext.state === 'suspended' || this.audioContext.state === 'interrupted') {
+            try {
+                await this.audioContext.resume();
+            } catch (e) {
+                // May need a fresh context after phone call / task switch
+            }
+        }
+
+        if (fromUserGesture && this.audioContext && this.audioContext.state !== 'running') {
+            await this.recreateAudioContext();
+        }
+
+        if (this.isAudioRunning()) {
+            this.hidePowerButton();
+            return true;
+        }
+
+        this.showPowerButton();
+        return false;
+    }
+
+    async initAudio() {
+        return this.ensureAudioReady({ fromUserGesture: true });
+    }
+
+    async resumeAudio() {
+        return this.ensureAudioReady({ fromUserGesture: true });
+    }
+
+    async tryAutoResumeOnVisible() {
+        return this.ensureAudioReady({ fromUserGesture: false });
     }
 
     showPowerButton() {
@@ -3686,8 +3774,8 @@ document.addEventListener('DOMContentLoaded', () => {
     new Gradatone();
 });
 
-// Register Service Worker for PWA
-if ('serviceWorker' in navigator) {
+// Register Service Worker for PWA (not in Capacitor native shell)
+if (!window.Capacitor && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
             .then(registration => {

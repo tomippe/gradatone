@@ -13,6 +13,12 @@
   --text-secondary: rgba(255, 255, 255, 0.7);
   --accent: #eacb66;
   --accent-glow: rgba(102, 126, 234, 0.4);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --ui-inset-min: 12px;
+  --label-edge-inset: 1.25rem;
 }
 
 body {
@@ -35,6 +41,8 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
+  box-sizing: border-box;
+  padding: max(var(--ui-inset-min), var(--safe-top)) max(var(--ui-inset-min), var(--safe-right)) max(var(--ui-inset-min), var(--safe-bottom)) max(var(--ui-inset-min), var(--safe-left));
 }
 
 .title-overlay {
@@ -64,7 +72,7 @@ html:has(.blur-overlay.hidden) .title-overlay {
 
 /* Portrait: title at top (below controls) */
 body.portrait .title-overlay {
-  top: 4rem;
+  top: 3.5rem;
   bottom: auto;
 }
 body.portrait .title-overlay h1 {
@@ -74,7 +82,7 @@ body.portrait .title-overlay h1 {
 /* Landscape: title at bottom (above pitch labels) */
 body.landscape .title-overlay {
   top: auto;
-  bottom: 6rem;
+  bottom: 5rem;
 }
 
 .logo-overlay {
@@ -290,7 +298,7 @@ body.landscape .title-overlay {
 /* Landscape: controls on right side */
 .container.landscape .instrument-control {
   flex-direction: row;
-  right: 1rem;
+  right: 0.5rem;
   top: 50%;
   transform: translateY(-50%);
 }
@@ -298,7 +306,7 @@ body.landscape .title-overlay {
 /* Portrait: controls on bottom */
 .container.portrait .instrument-control {
   flex-direction: column;
-  bottom: 1rem;
+  bottom: 0.5rem;
   left: 50%;
   transform: translateX(-50%);
 }
@@ -344,8 +352,8 @@ body.landscape .title-overlay {
 /* Settings Toggle Button */
 .settings-toggle {
   position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
+  top: 0.75rem;
+  right: 0.75rem;
   z-index: 11;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(10px);
@@ -380,8 +388,8 @@ body.landscape .title-overlay {
 /* Controls Container */
 .controls-container {
   position: absolute;
-  top: 1.5rem;
-  right: 4.5rem; /* Make room for settings button */
+  top: 0.75rem;
+  right: 3.75rem; /* Make room for settings button */
   margin-left: 0.75rem;
   z-index: 10;
   pointer-events: auto;

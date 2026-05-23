@@ -1,0 +1,25 @@
+{
+  "name": "gradatone-ios",
+  "version": "1.1.36",
+  "private": true,
+  "description": "Gradatone iOS wrapper",
+  "capacitor": {
+    "ios": {
+      "path": "ios"
+    }
+  },
+  "scripts": {
+    "build:web": "cd ../.. && npm run build:store-web",
+    "sync": "npm run build:web && npx cap sync ios",
+    "open": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
+    "typescript": "^5.0.0"
+  }
+}
