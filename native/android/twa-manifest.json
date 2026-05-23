@@ -20,8 +20,8 @@
     "path": "./keystore/upload.keystore",
     "alias": "upload"
   },
-  "appVersion": "1.2.0",
-  "appVersionCode": 3,
+  "appVersion": "1.2.1",
+  "appVersionCode": 4,
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://apps.tomippe.jp/gradatone/manifest.json",
   "fallbackType": "customtabs",

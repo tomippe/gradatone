@@ -788,8 +788,8 @@ async function configureNativeAudioSession({ userGesture = false } = {}) {
 function computeReleaseScreenVelocity(
     positionHistory,
     nowMs = Date.now(),
-    windowStartMs = 250,
-    windowEndMs = 50
+    windowStartMs = 100,
+    windowEndMs = 20
 ) {
     if (!positionHistory || positionHistory.length < 2) {
         return { velocityX: 0, velocityY: 0, method: 'empty' };
@@ -3077,6 +3077,7 @@ class Gradatone {
             instrumentType: layer.instrument,
             startTime: now,
             touchStartTime: Date.now(), // Real timestamp for hold duration calculation
+            touchStartFrequency: frequency,
             cleanupTimeout: null,
             autoStopTimeout: autoStopTimeout,
             snapTimeout: null,
@@ -3203,8 +3204,8 @@ class Gradatone {
         // Update screen position (which also records position history)
         this.setTouchPosition(touchId, clientX, clientY);
 
-        // 慣性用に押し終わり 250ms 前まで保持（150ms 窓だと不足）
-        const cutoffTime = Date.now() - 350;
+        // 慣性用に押し終わり 100ms 前まで保持（100〜20ms 窓用）
+        const cutoffTime = Date.now() - 200;
         touch.frequencyHistory = touch.frequencyHistory.filter(entry => entry.time > cutoffTime);
 
         // Update oscillator frequencies
@@ -3354,7 +3355,7 @@ class Gradatone {
         // This ensures the visual speed matches the swipe speed
 
         const nowMs = Date.now();
-        const releaseVel = computeReleaseScreenVelocity(touch.positionHistory, nowMs, 250, 50);
+        const releaseVel = computeReleaseScreenVelocity(touch.positionHistory, nowMs, 100, 20);
         let velocityX = releaseVel.velocityX;
         let velocityY = releaseVel.velocityY;
 
@@ -3440,8 +3441,18 @@ class Gradatone {
         const isLandscape = window.innerWidth >= window.innerHeight;
 
         const velocityThreshold = 50; // px/s
+        const minHoldMsForInertia = 400;
+        const holdMs = Date.now() - (touch.touchStartTime || Date.now());
+        const touchStartFrequency = touch.touchStartFrequency || startFreq;
+        const octaveTravel = Math.abs(
+            Math.log2(Math.max(20, startFreq) / Math.max(20, touchStartFrequency))
+        );
+        const hasEnoughPitchTravel = octaveTravel >= 0.5;
+        const meetsHoldRequirement = holdMs >= minHoldMsForInertia || hasEnoughPitchTravel;
         const pitchVelocity = isLandscape ? velocityX : velocityY;
-        const hasInertia = !isQuickMute && Math.abs(pitchVelocity) > velocityThreshold;
+        const hasInertia = !isQuickMute
+            && meetsHoldRequirement
+            && Math.abs(pitchVelocity) > velocityThreshold;
 
         let inertiaGlideTime = releaseTime;
         let inertiaMeta = { logSlopePerSec: 0, beyondScale: false };
