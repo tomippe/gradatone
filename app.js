@@ -843,6 +843,9 @@ class Gradatone {
         this.labelStartedTouches = new Map(); // Track touches that started on labels
         this.ownedTouchIds = new Set(); // canvas 上で開始したタッチ
         this.cancelledTouchIds = new Set(); // touchend が touchstart(非同期) より先に来た ID
+        this.pendingStartTouchIds = new Set(); // 音生成待ち（iOS 高速連打で欠落しないよう）
+        this.deferredTouchEnds = new Map(); // 音生成前に離れたタッチ → 生成直後に stop
+        this._touchStartChain = Promise.resolve();
         this.canvas = document.getElementById('canvas');
         this.ctx = this.canvas.getContext('2d');
         this.startButton = document.getElementById('startButton');
@@ -2122,6 +2125,8 @@ class Gradatone {
     }
 
     releaseAllActiveTouchSounds() {
+        this.pendingStartTouchIds.clear();
+        this.deferredTouchEnds.clear();
         const touchIds = Array.from(this.activeTouches.keys());
         touchIds.forEach((touchId) => {
             try {
@@ -2146,7 +2151,11 @@ class Gradatone {
         for (let i = 0; i < touchList.length; i++) {
             live.add(touchList[i].identifier);
         }
-        const staleIds = new Set([...this.activeTouches.keys(), ...this.ownedTouchIds]);
+        const staleIds = new Set([
+            ...this.activeTouches.keys(),
+            ...this.ownedTouchIds,
+            ...this.pendingStartTouchIds
+        ]);
         staleIds.forEach((touchId) => {
             if (touchId === 'mouse') return;
             if (live.has(touchId)) return;
@@ -2161,6 +2170,13 @@ class Gradatone {
     }
 
     endTouch(touchId, clientX, clientY, source = 'unknown') {
+        // 音生成待ちの間に離した → 生成後に止める（iOS で高速タップが消えるのを防ぐ）
+        if (!this.activeTouches.has(touchId) && this.pendingStartTouchIds.has(touchId)) {
+            this.deferredTouchEnds.set(touchId, { clientX, clientY });
+            this.ownedTouchIds.delete(touchId);
+            return;
+        }
+
         this.ownedTouchIds.delete(touchId);
         this.cancelledTouchIds.add(touchId);
 
@@ -2192,7 +2208,11 @@ class Gradatone {
     handleGlobalTouchEnd(e) {
         for (let touch of e.changedTouches) {
             const touchId = touch.identifier;
-            if (!this.ownedTouchIds.has(touchId) && !this.activeTouches.has(touchId)) {
+            if (
+                !this.ownedTouchIds.has(touchId) &&
+                !this.activeTouches.has(touchId) &&
+                !this.pendingStartTouchIds.has(touchId)
+            ) {
                 continue;
             }
             this.endTouch(touchId, touch.clientX, touch.clientY);
@@ -2712,9 +2732,6 @@ class Gradatone {
 
     createTouchSound(touchId, frequency, layerIndex = 0, clientX = null, clientY = null) {
         if (!this.audioContext) return;
-        if (isNativeCapacitor()) {
-            void configureNativeAudioSession({ userGesture: true });
-        }
 
         const now = this.audioContext.currentTime;
         const layer = this.layers[layerIndex];
@@ -3836,7 +3853,7 @@ class Gradatone {
     }
 
     // Touch event handlers
-    async handleTouchStart(e) {
+    handleTouchStart(e) {
         e.preventDefault();
         this.reconcileActiveTouches(e.touches);
 
@@ -3847,6 +3864,7 @@ class Gradatone {
             const touchId = touch.identifier;
             this.ownedTouchIds.add(touchId);
             this.cancelledTouchIds.delete(touchId);
+            this.pendingStartTouchIds.add(touchId);
 
             if (this.activeTouches.has(touchId)) {
                 this.endTouch(touchId, touch.clientX, touch.clientY);
@@ -3882,21 +3900,41 @@ class Gradatone {
             });
         }
 
+        if (pendingTouches.length === 0) {
+            return;
+        }
+
+        this._touchStartChain = this._touchStartChain
+            .then(() => this.processTouchStartBatch(pendingTouches))
+            .catch((err) => console.warn('processTouchStartBatch:', err));
+    }
+
+    async processTouchStartBatch(pendingTouches) {
         const ready = await this.ensureAudioReady({ fromUserGesture: true });
         if (!ready || !this.audioContext) {
             pendingTouches.forEach((p) => {
+                this.pendingStartTouchIds.delete(p.touchId);
+                this.deferredTouchEnds.delete(p.touchId);
                 this.ownedTouchIds.delete(p.touchId);
             });
             return;
         }
-        await configureNativeAudioSession({ userGesture: true });
 
         for (const p of pendingTouches) {
-            if (this.cancelledTouchIds.has(p.touchId)) {
+            if (!this.pendingStartTouchIds.has(p.touchId)) {
+                continue;
+            }
+
+            const deferredEnd = this.deferredTouchEnds.get(p.touchId);
+            if (this.cancelledTouchIds.has(p.touchId) && !deferredEnd) {
                 this.cancelledTouchIds.delete(p.touchId);
+                this.pendingStartTouchIds.delete(p.touchId);
                 this.ownedTouchIds.delete(p.touchId);
                 continue;
             }
+
+            this.cancelledTouchIds.delete(p.touchId);
+            this.pendingStartTouchIds.delete(p.touchId);
 
             if (p.onLabel) {
                 this.labelStartedTouches.set(p.touchId, true);
@@ -3906,6 +3944,11 @@ class Gradatone {
             this.createTouchSound(p.touchId, freq, p.layerIndex, p.clientX, p.clientY);
             this.createTouchIndicator(p.touchId, p.clientX, p.clientY, p.layerIndex);
             this.setTouchPosition(p.touchId, p.clientX, p.clientY);
+
+            if (deferredEnd) {
+                this.deferredTouchEnds.delete(p.touchId);
+                this.endTouch(p.touchId, deferredEnd.clientX, deferredEnd.clientY, 'deferred');
+            }
         }
     }
 
