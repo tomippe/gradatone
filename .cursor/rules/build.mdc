@@ -10,12 +10,24 @@ alwaysApply: true
 
 ## 概要
 
-- **種別**: Webアプリ（SCSS + JS + PWA）
-- **ビルド**: `npm run sass:build` でSCSSコンパイル → ファイルコピー
-- **デプロイ**: `../apps.tomippe.jp/gradatone/` → FTPディレクトリ同期
+- **種別**: Webアプリ（SCSS + JS + PWA）+ iOS（Capacitor）+ Android（TWA）
+- **統合ビルド**: `./build.sh -cm "メッセージ"`
+  1. Web → FTP（`../apps.tomippe.jp/gradatone/`）
+  2. `npm run build:store-web`
+  3. Android TWA → AAB + Play 内部テスト + assetlinks FTP
 - **開発サーバー**: ポート 8080（`python3 -m http.server`）
+
+## オプション
+
+| オプション | 説明 |
+|---|---|
+| `-cm "..."` | Git コミットメッセージ |
+| `-noverup` | ビルド後の version.txt インクリメントをスキップ |
+| `-skip-android` / `-no-android` | Android ビルドをスキップ |
+| `-no-android-upload` | AAB ビルドのみ（Play アップロードなし） |
 
 ## 固有設定
 
-- 対象ファイル: `index.html`, `style.css`, `app.js`, `sw.js`, `manifest.json`
-- `-app` オプション: なし
+- Web 対象: `index.html`, `style.css`, `app.js`, `sw.js`, `manifest.json`
+- Play: `~/.google-env` + `.env` の `GOOGLE_PLAY_PACKAGE_NAME`、署名 `~/.android-env`
+- iOS のみ: `native/ios/build.sh`（統合ビルドには含めない）

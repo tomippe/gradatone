@@ -1010,11 +1010,11 @@ class Gradatone {
     getRatioFromPlayablePosition(pos) {
         const { start, size } = this.getPlayableSpan();
         if (size <= 0) return 0;
-        const clamped = Math.min(Math.max(pos, start), start + size);
+        // 画面端（playable 外）も線形外挿 — min/max 音階で止めない（慣性と同様）
         if (this.isPortrait) {
-            return 1 - (clamped - start) / size;
+            return 1 - (pos - start) / size;
         }
-        return (clamped - start) / size;
+        return (pos - start) / size;
     }
 
     /** 音階ラベル・ガイド線・タッチ音程で共通の座標（ratio 0=低音端, 1=高音端） */
@@ -3273,6 +3273,15 @@ class Gradatone {
             this.setTouchPosition(touchId, releaseClientX, releaseClientY);
         }
 
+        // 離した位置の音程を反映（非慣性でも端で min/max に張り付かない）
+        if (touch.currentClientX != null && touch.currentClientY != null) {
+            const rect = this.canvas.getBoundingClientRect();
+            touch.currentFrequency = this.getFrequencyFromPosition(
+                touch.currentClientX - rect.left,
+                touch.currentClientY - rect.top
+            );
+        }
+
         const elapsed = touchId === 'mouse' && this.mouseDownTime ?
             ((Date.now() - this.mouseDownTime) / 1000).toFixed(2) : 'N/A';
 
@@ -3326,6 +3335,19 @@ class Gradatone {
             } else {
                 console.warn(`⚠️ Cannot move indicator: currentClientX=${touch.currentClientX}, currentClientY=${touch.currentClientY}`);
             }
+        } else if (touch.currentClientX != null && touch.currentClientY != null) {
+            // スナップオフ: 離した位置の音程をそのままオシレータへ
+            const releaseFreq = touch.currentFrequency;
+            touch.oscillators.forEach(({ osc, config }) => {
+                let freq = releaseFreq;
+                if (config.octave !== undefined) {
+                    freq = releaseFreq * Math.pow(2, config.octave);
+                } else if (config.partial !== undefined) {
+                    freq = releaseFreq * config.partial;
+                }
+                osc.frequency.cancelScheduledValues(now);
+                osc.frequency.setValueAtTime(Math.max(20, Math.abs(freq)), now);
+            });
         }
 
         // Inertia velocity will be calculated from screen pixel velocity (velocityX/Y)
