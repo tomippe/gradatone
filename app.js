@@ -1789,37 +1789,24 @@ class Gradatone {
             });
         }
 
-        // Minor toggle (replacement UI for the legacy scale select)
-        const minorToggle = document.getElementById('minorToggle');
-        if (minorToggle) {
-            minorToggle.checked = this.currentScale === 'minor';
-            minorToggle.addEventListener('touchstart', (e) => {
+        // Label select - prevent touch/click propagation
+        if (this.labelSelect) {
+            this.labelSelect.addEventListener('touchstart', (e) => {
                 e.stopPropagation();
             }, { passive: true });
-            minorToggle.addEventListener('change', (e) => {
-                e.stopPropagation();
-                this.currentScale = e.target.checked ? 'minor' : 'major';
-                this.saveScaleSettings();
-                this.drawGuideLines();
+
+            this.labelSelect.addEventListener('change', (e) => {
+                e.stopPropagation(); // Prevent canvas click event
+                this.labelMode = e.target.value;
+                this.saveLabelSettings();
+                // Regenerate pitch labels
                 this.setupPitchLabels();
+                // Update transpose options with new label format
                 this.updateTransposeOptions();
             });
+        } else {
+            console.warn('⚠️ labelSelect element not found');
         }
-
-        // Label select - prevent touch/click propagation
-        this.labelSelect.addEventListener('touchstart', (e) => {
-            e.stopPropagation();
-        }, { passive: true });
-
-        this.labelSelect.addEventListener('change', (e) => {
-            e.stopPropagation(); // Prevent canvas click event
-            this.labelMode = e.target.value;
-            this.saveLabelSettings();
-            // Regenerate pitch labels
-            this.setupPitchLabels();
-            // Update transpose options with new label format
-            this.updateTransposeOptions();
-        });
 
         // Snap select - prevent touch/click propagation
         this.snapSelect.addEventListener('touchstart', (e) => {
