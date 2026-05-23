@@ -58,8 +58,10 @@ fi
 
 ICON_SRC=""
 for candidate in \
-  "$ROOT_DIR/native/store-web/assets/icon-1024.png" \
+  "$ROOT_DIR/apple-touch-icon.png" \
+  "$ROOT_DIR/icon-512.png" \
   "$ROOT_DIR/favicon.png" \
+  "$ROOT_DIR/native/store-web/apple-touch-icon.png" \
   "$ROOT_DIR/native/store-web/icon-512.png"; do
   if [ -f "$candidate" ]; then
     ICON_SRC="$candidate"
@@ -67,16 +69,11 @@ for candidate in \
   fi
 done
 if [ -n "$ICON_SRC" ] && [ -f "$IOS_APP_DIR/App/Assets.xcassets/AppIcon.appiconset/Contents.json" ]; then
-  echo "🎨 App Icon ← $(basename "$ICON_SRC")"
+  echo "🎨 App Icon ← $(basename "$ICON_SRC")（Web 版）"
   ICON_DEST="$IOS_APP_DIR/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png"
-  if [ "$(basename "$ICON_SRC")" = "favicon.png" ] || [ "$(basename "$ICON_SRC")" = "icon-512.png" ]; then
-    magick "$ICON_SRC" -resize 1024x1024^ -gravity center -extent 1024x1024 -background white -alpha remove -alpha off "$ICON_DEST"
-  else
-    cp "$ICON_SRC" "$ICON_DEST"
-    magick "$ICON_DEST" -background white -alpha remove -alpha off "${ICON_DEST}.tmp" && mv "${ICON_DEST}.tmp" "$ICON_DEST"
-  fi
+  magick "$ICON_SRC" -resize 1024x1024 -filter Lanczos "$ICON_DEST"
 else
-  echo "  ⚠️ App Icon 用 PNG がありません（icon.svg / favicon.png を確認）"
+  echo "  ⚠️ App Icon 用 PNG がありません（apple-touch-icon.png / icon-512.png を確認）"
 fi
 
 cd "$SCRIPT_DIR"

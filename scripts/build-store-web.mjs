@@ -24,9 +24,46 @@ function readVersion() {
   return manifest.version || "1.0.0";
 }
 
-function generateIcons() {
+/** Web 版と同じ PNG を優先（icon.svg からの再生成で上書きしない） */
+function copyWebIcons() {
+  const pairs = [
+    ["favicon.png", "favicon.png"],
+    ["apple-touch-icon.png", "apple-touch-icon.png"],
+    ["icon-192.png", "icon-192.png"],
+    ["icon-512.png", "icon-512.png"],
+  ];
+  let copied = 0;
+  for (const [srcName, destName] of pairs) {
+    const src = path.join(root, srcName);
+    if (!fs.existsSync(src)) continue;
+    copyFile(src, path.join(outDir, destName));
+    copied++;
+  }
+  const icon512 = path.join(root, "icon-512.png");
+  const appleTouch = path.join(root, "apple-touch-icon.png");
+  const iconSrc = fs.existsSync(icon512)
+    ? icon512
+    : fs.existsSync(appleTouch)
+      ? appleTouch
+      : null;
+  if (iconSrc) {
+    try {
+      execSync(
+        `magick "${iconSrc}" -resize 1024x1024 -filter Lanczos "${path.join(assetsDir, "icon-1024.png")}"`,
+        { stdio: "pipe" }
+      );
+      copied++;
+    } catch (e) {
+      console.warn(`  ⚠️ icon-1024: ${e.message}`);
+    }
+  }
+  return copied > 0;
+}
+
+function generateIconsFromSvg() {
   const svg = path.join(root, "icon.svg");
   if (!fs.existsSync(svg)) return;
+  console.warn("  ⚠️ Web 用 PNG が無いため icon.svg から生成します");
   const sizes = [
     ["favicon.png", 32],
     ["apple-touch-icon.png", 180],
@@ -62,7 +99,12 @@ if (fs.existsSync(outDir)) {
 ensureDir(assetsDir);
 
 const version = readVersion();
-generateIcons();
+const usedWebIcons = copyWebIcons();
+if (usedWebIcons) {
+  console.log("  ✓ Web 版アイコンを store-web にコピー");
+} else {
+  generateIconsFromSvg();
+}
 
 copyFile(path.join(root, "style.css"), path.join(outDir, "style.css"));
 copyFile(path.join(root, "app.js"), path.join(outDir, "app.js"));
@@ -106,12 +148,14 @@ indexHtml = indexHtml.replace(
 
 fs.writeFileSync(path.join(outDir, "index.html"), indexHtml);
 
-// PWA / FTP 用（manifest が参照する icon-192 / icon-512）
-for (const name of ["icon-192.png", "icon-512.png", "favicon.png", "apple-touch-icon.png"]) {
-  const generated = path.join(outDir, name);
-  const rootDest = path.join(root, name);
-  if (fs.existsSync(generated)) {
-    copyFile(generated, rootDest);
+// icon.svg から生成した場合のみルートへ戻す（Web 版 PNG の上書きを防ぐ）
+if (!usedWebIcons) {
+  for (const name of ["icon-192.png", "icon-512.png", "favicon.png", "apple-touch-icon.png"]) {
+    const generated = path.join(outDir, name);
+    const rootDest = path.join(root, name);
+    if (fs.existsSync(generated)) {
+      copyFile(generated, rootDest);
+    }
   }
 }
 
