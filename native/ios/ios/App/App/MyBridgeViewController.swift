@@ -38,6 +38,7 @@ class MyBridgeViewController: CAPBridgeViewController {
 
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(GradatoneAudioSessionPlugin())
+        bridge?.registerPluginInstance(InAppReviewPlugin())
         GradatoneAudioSession.activatePlaybackSession()
         configureEdgeToEdgeWebView()
     }

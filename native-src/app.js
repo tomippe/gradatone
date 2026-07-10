@@ -693,6 +693,90 @@ function isNativeCapacitor() {
     return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 }
 
+const APP_REVIEW_STORAGE_KEY = 'gradatone-review-state';
+const APP_REVIEW_SESSION_KEY = 'gradatone-review-session-counted';
+const APP_REVIEW_LAUNCH_THRESHOLD = 10;
+const APP_REVIEW_COOLDOWN_DAYS = 30;
+const APP_REVIEW_PROMPT_DELAY_MS = 5000;
+
+function readAppReviewState() {
+    try {
+        const raw = localStorage.getItem(APP_REVIEW_STORAGE_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            return {
+                launchCount: Math.max(0, Number(parsed.launchCount) || 0),
+                lastRequestedAt: parsed.lastRequestedAt ?? null
+            };
+        }
+    } catch (e) {
+        console.warn('readAppReviewState:', e);
+    }
+    return { launchCount: 0, lastRequestedAt: null };
+}
+
+function writeAppReviewState(state) {
+    try {
+        localStorage.setItem(APP_REVIEW_STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        console.warn('writeAppReviewState:', e);
+    }
+}
+
+function daysSinceIsoDate(isoDate) {
+    return (Date.now() - new Date(isoDate).getTime()) / (1000 * 60 * 60 * 24);
+}
+
+function recordLaunchIfNewSession() {
+    try {
+        if (sessionStorage.getItem(APP_REVIEW_SESSION_KEY)) {
+            return readAppReviewState().launchCount;
+        }
+        sessionStorage.setItem(APP_REVIEW_SESSION_KEY, '1');
+    } catch (e) {
+        // sessionStorage 不可なら毎回加算
+    }
+    const state = readAppReviewState();
+    state.launchCount += 1;
+    writeAppReviewState(state);
+    return state.launchCount;
+}
+
+function shouldRequestAppReview(launchCount, state) {
+    if (launchCount < APP_REVIEW_LAUNCH_THRESHOLD) return false;
+    if (state.lastRequestedAt && daysSinceIsoDate(state.lastRequestedAt) < APP_REVIEW_COOLDOWN_DAYS) {
+        return false;
+    }
+    return true;
+}
+
+async function requestNativeAppReview() {
+    const plugin = window.Capacitor?.Plugins?.InAppReview;
+    if (!plugin?.requestReview) return false;
+    await plugin.requestReview();
+    return true;
+}
+
+/** ネイティブ版の起動時。10回目以降かつ前回依頼から30日経過後にストアのレビュー依頼を出す。 */
+async function maybeRequestAppReviewOnLaunch() {
+    if (!isNativeCapacitor()) return;
+
+    const state = readAppReviewState();
+    const launchCount = recordLaunchIfNewSession();
+    if (!shouldRequestAppReview(launchCount, state)) return;
+
+    await new Promise((resolve) => setTimeout(resolve, APP_REVIEW_PROMPT_DELAY_MS));
+
+    try {
+        const ok = await requestNativeAppReview();
+        if (ok) {
+            writeAppReviewState({ ...readAppReviewState(), lastRequestedAt: new Date().toISOString() });
+        }
+    } catch (e) {
+        console.warn('[AppReview] request failed', e);
+    }
+}
+
 function getGradatoneAudioSessionPlugin() {
     const cap = window.Capacitor;
     if (!cap) return null;
@@ -4239,6 +4323,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     new Gradatone();
+    void maybeRequestAppReviewOnLaunch();
 });
 
 // Register Service Worker for PWA (not in Capacitor native shell)
