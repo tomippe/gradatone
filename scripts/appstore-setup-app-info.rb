@@ -10,7 +10,7 @@ options = {
   bundle_id: ENV.fetch("BUNDLE_ID", "jp.tomippe.gradatone"),
   version: nil,
   privacy_policy_url: "https://apps.tomippe.jp/gradatone/policy/",
-  copyright: "Copyright © 2026 tomippe. All rights reserved.",
+  copyright: "Copyright © 2026 Studio Tomippe. All rights reserved.",
   upload_ipad_screenshots: false,
   locales: %w[ja en-US zh-Hans]
 }
