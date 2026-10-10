@@ -47,3 +47,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
 }
+
+/// UIKit requires scene lifecycle adoption for apps built with the iOS 27 SDK.
+/// Main.storyboard creates the existing Capacitor bridge controller for this window.
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    var window: UIWindow?
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        GradatoneAudioSession.activatePlaybackSession()
+    }
+}
