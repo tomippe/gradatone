@@ -678,6 +678,78 @@ function makeDistortionCurve(amount) {
     return curve;
 }
 
+function normalizePianoBuffer(buffer, targetPeak = 0.82) {
+    let peak = 0;
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+        const data = buffer.getChannelData(channel);
+        for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]));
+    }
+    if (peak > 0) {
+        const gain = targetPeak / peak;
+        for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+            const data = buffer.getChannelData(channel);
+            for (let i = 0; i < data.length; i++) data[i] *= gain;
+        }
+    }
+    return buffer;
+}
+
+function createPianoSustainBuffer(context, sourceBuffer, frequency) {
+    const start = Math.min(1.2, sourceBuffer.duration * 0.2);
+    const cycles = Math.max(1, Math.round(frequency * 1.15));
+    const end = Math.min(sourceBuffer.duration - 0.1, start + cycles / frequency);
+    const firstFrame = Math.floor(start * sourceBuffer.sampleRate);
+    const lastFrame = Math.max(firstFrame + 1, Math.floor(end * sourceBuffer.sampleRate));
+    const loop = context.createBuffer(sourceBuffer.numberOfChannels, lastFrame - firstFrame, sourceBuffer.sampleRate);
+    let peak = 0;
+    for (let channel = 0; channel < sourceBuffer.numberOfChannels; channel++) {
+        const source = sourceBuffer.getChannelData(channel).subarray(firstFrame, lastFrame);
+        const target = loop.getChannelData(channel);
+        target.set(source);
+        let mean = 0;
+        for (let i = 0; i < target.length; i++) mean += target[i];
+        mean /= target.length;
+        for (let i = 0; i < target.length; i++) {
+            target[i] -= mean;
+            peak = Math.max(peak, Math.abs(target[i]));
+        }
+    }
+    if (peak > 0) {
+        const gain = 0.14 / peak;
+        for (let channel = 0; channel < loop.numberOfChannels; channel++) {
+            const target = loop.getChannelData(channel);
+            for (let i = 0; i < target.length; i++) target[i] *= gain;
+        }
+    }
+    return loop;
+}
+
+function createPianoRoomReverb(context, destination) {
+    const duration = 2.4;
+    const length = Math.floor(context.sampleRate * duration);
+    const impulse = context.createBuffer(2, length, context.sampleRate);
+    for (let channel = 0; channel < 2; channel++) {
+        const data = impulse.getChannelData(channel);
+        let seed = channel ? 0x91e10da5 : 0x6d2b79f5;
+        let previous = 0;
+        for (let i = 0; i < length; i++) {
+            seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+            const noise = (seed / 0x80000000) - 1;
+            const time = i / length;
+            const dampedNoise = noise * 0.72 + previous * 0.28;
+            data[i] = dampedNoise * Math.pow(1 - time, 3.2) * (channel ? 0.92 : 1);
+            previous = noise;
+        }
+    }
+    const convolver = context.createConvolver();
+    convolver.buffer = impulse;
+    const wet = context.createGain();
+    wet.gain.value = 0.2;
+    convolver.connect(wet);
+    wet.connect(destination);
+    return convolver;
+}
+
 // Label mapping for different notation systems
 const NOTE_LABELS = {
     'C': { eng: 'C', abc: 'C', sol: 'Do', jp: 'ド', svara: 'स' },
@@ -1956,6 +2028,7 @@ class Gradatone {
         this.masterCompressor.connect(this.softClipper);
         this.softClipper.connect(this.outputGain);
         this.outputGain.connect(this.audioContext.destination);
+        this.pianoReverb = createPianoRoomReverb(this.audioContext, this.outputGain);
 
         // Resume context if suspended
         if (this.audioContext.state === 'suspended') {
@@ -2343,7 +2416,8 @@ class Gradatone {
             try {
                 const response = await fetch(`piano-samples/${zone.name}.mp3`);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                zone.buffer = await context.decodeAudioData(await response.arrayBuffer());
+                zone.buffer = normalizePianoBuffer(await context.decodeAudioData(await response.arrayBuffer()));
+                zone.sustainBuffer = createPianoSustainBuffer(context, zone.buffer, zone.frequency);
             } catch (error) {
                 console.warn(`Piano sample unavailable (${zone.name})`, error);
             }
@@ -2365,13 +2439,14 @@ class Gradatone {
         const edge = context.createGain();
         edge.gain.setValueAtTime(clientX !== null && clientY !== null ? this.getEdgeFadeVolume(clientX, clientY, layerIndex) : 1, now);
         edge.connect(this.masterGain);
+        if (this.pianoReverb) edge.connect(this.pianoReverb);
         const touchData = {
             oscillators: [], filter: context.createBiquadFilter(), gainNode: context.createGain(), edgeFadeGainNode: edge,
             layerIndex, instrumentType: layer.instrument, isPianoSampleVoice: true, sampleSources: new Map(),
             currentFrequency: frequency, startTime: now, touchStartTime: Date.now(), touchStartFrequency: frequency, snapTimeout: null,
             currentClientX: clientX, currentClientY: clientY, frequencyHistory: [], positionHistory: [], snappedFrequency: null
         };
-        touchData.gainNode.gain.setValueAtTime(0.5, now);
+        touchData.gainNode.gain.setValueAtTime(0.72, now);
         touchData.sampleMix = context.createGain();
         touchData.sampleMix.connect(touchData.gainNode);
         touchData.gainNode.connect(edge);
@@ -2424,14 +2499,18 @@ class Gradatone {
         const now = context.currentTime;
         let elapsedSamplePosition = null;
         touch.sampleSources.forEach(voice => {
-            if (voice.ended) return;
+            if (voice.stopped) return;
             const elapsed = Math.max(0, now - voice.positionUpdatedAt);
-            voice.samplePosition = Math.min(voice.zone.buffer.duration, voice.samplePosition + elapsed * voice.playbackRateValue);
+            const nextPosition = voice.samplePosition + elapsed * voice.playbackRateValue;
+            const loopSpan = voice.loopEnd - voice.loopStart;
+            voice.samplePosition = nextPosition >= voice.loopEnd
+                ? voice.loopStart + ((nextPosition - voice.loopStart) % loopSpan)
+                : nextPosition;
             voice.positionUpdatedAt = now;
             if (elapsedSamplePosition === null || voice.samplePosition > elapsedSamplePosition) elapsedSamplePosition = voice.samplePosition;
         });
         let active = touch.sampleSources.get(zone.name);
-        if (active?.ended) {
+        if (active?.stopped) {
             touch.sampleSources.delete(zone.name);
             active = null;
         }
@@ -2439,27 +2518,50 @@ class Gradatone {
             const source = context.createBufferSource();
             const gain = context.createGain();
             source.buffer = zone.buffer;
-            // The initial source includes the hammer attack when it can start promptly. Later zones
-            // continue near the current recorded sample position, after the attack, and play to their
-            // natural end; they never loop around and repeat the decay tail.
+            const sustainSource = context.createBufferSource();
+            const sustainGain = context.createGain();
+            sustainSource.buffer = zone.sustainBuffer;
+            sustainSource.loop = true;
+            sustainSource.loopEnd = zone.sustainBuffer.duration;
             const playbackRate = frequency / zone.frequency;
             const attackOffset = Math.min(0.22, zone.buffer.duration * 0.12);
             const tailOffset = Math.max(0, zone.buffer.duration - 0.06);
             const elapsedPosition = elapsedSamplePosition ?? Math.max(0, now - touch.startTime) * playbackRate;
-            const offset = initial && (now - touch.startTime) < 0.12
-                ? 0
-                : Math.min(tailOffset, Math.max(attackOffset, elapsedPosition));
+            const loopStart = Math.min(1.2, zone.buffer.duration * 0.2);
+            const loopEnd = Math.min(zone.buffer.duration - 0.1, loopStart + zone.sustainBuffer.duration);
+            const loopSpan = Math.max(0.01, loopEnd - loopStart);
+            const offset = initial && (now - touch.startTime) < 0.12 ? 0 : (elapsedPosition >= loopEnd
+                ? loopStart + ((elapsedPosition - loopStart) % loopSpan)
+                : Math.min(tailOffset, Math.max(attackOffset, elapsedPosition)));
             source.playbackRate.setValueAtTime(playbackRate, now);
+            sustainSource.playbackRate.setValueAtTime(playbackRate, now);
             gain.gain.setValueAtTime(0, now);
+            sustainGain.gain.setValueAtTime(0, now);
             source.connect(gain);
             gain.connect(touch.sampleMix);
-            active = { source, gain, zone, ended: false, cleanupTimer: null, samplePosition: offset, positionUpdatedAt: now, playbackRateValue: playbackRate };
+            sustainSource.connect(sustainGain);
+            sustainGain.connect(touch.sampleMix);
+            const noteAge = Math.max(0, now - touch.startTime);
+            const sustainLevel = 0.65;
+            if (noteAge < 1.05) {
+                const fadeStart = Math.max(now, touch.startTime + 0.45);
+                const fadeEnd = Math.max(now + 0.04, touch.startTime + 1.05);
+                sustainGain.gain.setValueAtTime(0, fadeStart);
+                sustainGain.gain.linearRampToValueAtTime(sustainLevel, fadeEnd);
+            } else {
+                sustainGain.gain.setTargetAtTime(sustainLevel, now, 0.045);
+            }
+            const sustainPhase = noteAge % zone.sustainBuffer.duration;
+            active = {
+                source, gain, sustainSource, sustainGain, zone, stopped: false, attackEnded: false, cleanupTimer: null,
+                samplePosition: offset, positionUpdatedAt: now, playbackRateValue: playbackRate, loopStart, loopEnd
+            };
             source.onended = () => {
-                active.ended = true;
-                if (touch.sampleSources.get(zone.name) === active) touch.sampleSources.delete(zone.name);
+                active.attackEnded = true;
                 try { source.disconnect(); gain.disconnect(); } catch (_) {}
             };
             source.start(now, offset);
+            sustainSource.start(now, sustainPhase);
             touch.sampleSources.set(zone.name, active);
         } else {
             if (active.cleanupTimer) {
@@ -2467,18 +2569,23 @@ class Gradatone {
                 active.cleanupTimer = null;
             }
             active.playbackRateValue = frequency / zone.frequency;
-            active.source.playbackRate.setTargetAtTime(active.playbackRateValue, now, 0.012);
+            if (!active.attackEnded) active.source.playbackRate.setTargetAtTime(active.playbackRateValue, now, 0.012);
+            active.sustainSource.playbackRate.setTargetAtTime(active.playbackRateValue, now, 0.012);
         }
         // Crossfade old and new zones without retriggering a sample's hammer attack.
         touch.sampleSources.forEach((voice, name) => {
             const selected = name === zone.name;
             voice.gain.gain.cancelScheduledValues(now);
-            voice.gain.gain.setTargetAtTime(selected ? 0.5 : 0, now, 0.025);
+            voice.gain.gain.setTargetAtTime(selected ? 0.72 : 0, now, 0.025);
+            voice.sustainGain.gain.cancelScheduledValues(now);
+            voice.sustainGain.gain.setTargetAtTime(selected ? 0.65 : 0, now, 0.025);
             if (!selected && !voice.cleanupTimer) {
                 voice.cleanupTimer = setTimeout(() => {
                     voice.cleanupTimer = null;
                     if (touch.sampleSources.get(name) !== voice) return;
+                    voice.stopped = true;
                     try { voice.source.stop(); } catch (_) {}
+                    try { voice.sustainSource.stop(); } catch (_) {}
                     touch.sampleSources.delete(name);
                 }, 160);
             }
@@ -2502,11 +2609,17 @@ class Gradatone {
             this.updatePianoSampleVoice(touch, touch.currentFrequency, false);
             const duration = Math.max(0.02, glideTime);
             touch.sampleSources.forEach(voice => {
-                const rate = voice.source.playbackRate;
                 const startRate = voice.playbackRateValue;
-                rate.cancelScheduledValues(now);
-                rate.setValueAtTime(startRate, now);
-                rate.linearRampToValueAtTime(endFrequency / voice.zone.frequency, now + duration);
+                if (!voice.attackEnded) {
+                    const rate = voice.source.playbackRate;
+                    rate.cancelScheduledValues(now);
+                    rate.setValueAtTime(startRate, now);
+                    rate.linearRampToValueAtTime(endFrequency / voice.zone.frequency, now + duration);
+                }
+                const sustainRate = voice.sustainSource.playbackRate;
+                sustainRate.cancelScheduledValues(now);
+                sustainRate.setValueAtTime(startRate, now);
+                sustainRate.linearRampToValueAtTime(endFrequency / voice.zone.frequency, now + duration);
             });
             if (touch.fallbackVoice) {
                 const frequency = touch.fallbackVoice.oscillator.frequency;
@@ -2515,9 +2628,10 @@ class Gradatone {
                 frequency.linearRampToValueAtTime(endFrequency, now + duration);
             }
         }
-        touch.sampleSources.forEach(({ source, cleanupTimer }) => {
-            if (cleanupTimer) clearTimeout(cleanupTimer);
-            try { source.stop(now + releaseTime + 0.04); } catch (_) {}
+        touch.sampleSources.forEach(voice => {
+            if (voice.cleanupTimer) clearTimeout(voice.cleanupTimer);
+            try { if (!voice.attackEnded) voice.source.stop(now + releaseTime + 0.04); } catch (_) {}
+            try { voice.sustainSource.stop(now + releaseTime + 0.04); } catch (_) {}
         });
         if (touch.fallbackVoice) {
             const bridge = touch.fallbackVoice;
@@ -2527,7 +2641,10 @@ class Gradatone {
             try { bridge.oscillator.stop(now + releaseTime + 0.05); } catch (_) {}
         }
         setTimeout(() => {
-            touch.sampleSources.forEach(({ source, gain }) => { try { source.disconnect(); gain.disconnect(); } catch (_) {} });
+            touch.sampleSources.forEach(voice => {
+                try { voice.source.disconnect(); voice.gain.disconnect(); } catch (_) {}
+                try { voice.sustainSource.disconnect(); voice.sustainGain.disconnect(); } catch (_) {}
+            });
             try { touch.sampleMix.disconnect(); touch.gainNode.disconnect(); touch.edgeFadeGainNode.disconnect(); } catch (_) {}
         }, (releaseTime + 0.12) * 1000);
     }
