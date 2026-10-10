@@ -2446,7 +2446,22 @@ class Gradatone {
             currentFrequency: frequency, startTime: now, touchStartTime: Date.now(), touchStartFrequency: frequency, snapTimeout: null,
             currentClientX: clientX, currentClientY: clientY, frequencyHistory: [], positionHistory: [], snappedFrequency: null
         };
-        touchData.gainNode.gain.setValueAtTime(0.72, now);
+        const pianoEnvelope = INSTRUMENTS.piano.envelope;
+        const pianoPeak = 0.72;
+        const pianoSustain = pianoPeak * pianoEnvelope.sustain;
+        const pianoDecayEnd = now + pianoEnvelope.attack + pianoEnvelope.decay;
+        const pianoHoldEnd = pianoDecayEnd + pianoEnvelope.holdTime;
+        const pianoFadeEnd = pianoHoldEnd + 3.0;
+        touchData.pianoEnvelopePeak = pianoPeak;
+        touchData.pianoEnvelopeSustain = pianoSustain;
+        touchData.pianoEnvelopeDecayEnd = pianoDecayEnd;
+        touchData.pianoEnvelopeHoldEnd = pianoHoldEnd;
+        touchData.pianoEnvelopeFadeEnd = pianoFadeEnd;
+        touchData.gainNode.gain.setValueAtTime(0, now);
+        touchData.gainNode.gain.linearRampToValueAtTime(pianoPeak, now + pianoEnvelope.attack);
+        touchData.gainNode.gain.linearRampToValueAtTime(pianoSustain, pianoDecayEnd);
+        touchData.gainNode.gain.setValueAtTime(pianoSustain, pianoHoldEnd);
+        touchData.gainNode.gain.linearRampToValueAtTime(0, pianoFadeEnd);
         touchData.sampleMix = context.createGain();
         touchData.sampleMix.connect(touchData.gainNode);
         touchData.gainNode.connect(edge);
@@ -2484,6 +2499,24 @@ class Gradatone {
             touch.positionHistory.push({ time: Date.now(), x: touch.currentClientX, y: touch.currentClientY });
             touch.positionHistory = touch.positionHistory.filter(entry => entry.time > Date.now() - 600);
         }, 50);
+    }
+
+    pianoEnvelopeLevelAt(touch, time) {
+        const elapsed = Math.max(0, time - touch.startTime);
+        const env = INSTRUMENTS.piano.envelope;
+        const attackEnd = env.attack;
+        const decayEnd = attackEnd + env.decay;
+        const holdEnd = decayEnd + env.holdTime;
+        const peak = touch.pianoEnvelopePeak;
+        const sustain = touch.pianoEnvelopeSustain;
+        if (elapsed < attackEnd) return peak * (elapsed / Math.max(0.001, env.attack));
+        if (elapsed < decayEnd) {
+            const progress = (elapsed - attackEnd) / Math.max(0.001, env.decay);
+            return peak + (sustain - peak) * progress;
+        }
+        if (elapsed < holdEnd) return sustain;
+        if (elapsed < holdEnd + 3.0) return sustain * (1 - (elapsed - holdEnd) / 3.0);
+        return 0;
     }
 
     updatePianoSampleVoice(touch, frequency, initial = false) {
@@ -2596,9 +2629,10 @@ class Gradatone {
         const now = this.audioContext.currentTime;
         if (touch.positionTracker) clearInterval(touch.positionTracker);
         touch.gainNode.gain.cancelScheduledValues(now);
-        touch.gainNode.gain.setValueAtTime(touch.gainNode.gain.value, now);
+        const releaseLevel = this.pianoEnvelopeLevelAt(touch, now);
+        touch.gainNode.gain.setValueAtTime(releaseLevel, now);
         if (isQuickMute) {
-            touch.gainNode.gain.linearRampToValueAtTime(touch.gainNode.gain.value * 0.3, now + 0.01);
+            touch.gainNode.gain.linearRampToValueAtTime(releaseLevel * 0.3, now + 0.01);
             touch.gainNode.gain.linearRampToValueAtTime(0, now + releaseTime);
         } else {
             touch.gainNode.gain.linearRampToValueAtTime(0, now + releaseTime);
