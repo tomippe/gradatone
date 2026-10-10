@@ -29,7 +29,7 @@ API 反映:
 
 ```bash
 cd /Users/tomippe/Cursor/gradatone
-source ~/.apple-env && source .env
+source ~/Secrets/apple-app-store.env && source .env
 ./scripts/appstore-sync-listing.sh $(cat version.txt)
 ```
 

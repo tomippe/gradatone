@@ -194,7 +194,7 @@ else
         --bundle-id "$BUNDLE_ID" \
         --version "$VERSION" \
         --build-number "$NEW_BUILD" \
-        --locale "${TESTFLIGHT_WHAT_TO_TEST_LOCALE:-ja-JP}" \
+        --locale "${TESTFLIGHT_WHAT_TO_TEST_LOCALE:-ja}" \
         --notes "$TESTFLIGHT_NOTES" || true
     fi
   else

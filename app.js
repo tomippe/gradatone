@@ -1961,6 +1961,8 @@ class Gradatone {
         if (this.audioContext.state === 'suspended') {
             await this.audioContext.resume();
         }
+        // Begin decoding after the user gesture creates the AudioContext; do not block audio startup.
+        this.preloadPianoSamples();
 
         // Check if audio is muted and show alert
         setTimeout(() => {
@@ -2287,6 +2289,7 @@ class Gradatone {
 
         // Smoothly transition to snapped frequency
         const instrument = INSTRUMENTS[touch.instrumentType];
+        if (touch.isPianoSampleVoice) this.updatePianoSampleVoice(touch, snappedFreq);
         touch.oscillators.forEach(({ osc, config }) => {
             let freq = snappedFreq;
             if (config.octave !== undefined) {
@@ -2319,6 +2322,216 @@ class Gradatone {
         }
     }
 
+    getPianoSampleZones() {
+        if (!this.pianoSampleZones) {
+            const anchors = ['A1','C2','D#2','F#2','A2','C3','D#3','F#3','A3','C4','D#4','F#4','A4','C5','D#5','F#5','A5','C6','D#6','F#6','A6'];
+            const semitones = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+            this.pianoSampleZones = anchors.map(name => {
+                const [, pitch, octave] = name.match(/^([A-G]#?)(\d)$/);
+                const midi = (Number(octave) + 1) * 12 + semitones[pitch];
+                return { name: name.replace('#', 's'), midi, frequency: 440 * Math.pow(2, (midi - 69) / 12), buffer: null };
+            });
+        }
+        return this.pianoSampleZones;
+    }
+
+    preloadPianoSamples() {
+        if (this.pianoSamplesPromise || !this.audioContext) return this.pianoSamplesPromise;
+        const context = this.audioContext;
+        const zones = this.getPianoSampleZones();
+        this.pianoSamplesPromise = Promise.all(zones.map(async zone => {
+            try {
+                const response = await fetch(`piano-samples/${zone.name}.mp3`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                zone.buffer = await context.decodeAudioData(await response.arrayBuffer());
+            } catch (error) {
+                console.warn(`Piano sample unavailable (${zone.name})`, error);
+            }
+        }));
+        return this.pianoSamplesPromise;
+    }
+
+    startPianoSampleTouch(touchId, frequency, layerIndex, clientX, clientY) {
+        const context = this.audioContext;
+        const now = context.currentTime;
+        const layer = this.layers[layerIndex];
+        if (!layer) return;
+        const previousTouch = this.activeTouches.get(touchId);
+        if (previousTouch?.isPianoSampleVoice) {
+            if (previousTouch.snapTimeout) clearTimeout(previousTouch.snapTimeout);
+            this.activeTouches.delete(touchId);
+            this.releasePianoSampleVoice(previousTouch, 0.025, previousTouch.currentFrequency, false);
+        }
+        const edge = context.createGain();
+        edge.gain.setValueAtTime(clientX !== null && clientY !== null ? this.getEdgeFadeVolume(clientX, clientY, layerIndex) : 1, now);
+        edge.connect(this.masterGain);
+        const touchData = {
+            oscillators: [], filter: context.createBiquadFilter(), gainNode: context.createGain(), edgeFadeGainNode: edge,
+            layerIndex, instrumentType: layer.instrument, isPianoSampleVoice: true, sampleSources: new Map(),
+            currentFrequency: frequency, startTime: now, touchStartTime: Date.now(), touchStartFrequency: frequency, snapTimeout: null,
+            currentClientX: clientX, currentClientY: clientY, frequencyHistory: [], positionHistory: [], snappedFrequency: null
+        };
+        touchData.gainNode.gain.setValueAtTime(0.5, now);
+        touchData.sampleMix = context.createGain();
+        touchData.sampleMix.connect(touchData.gainNode);
+        touchData.gainNode.connect(edge);
+        this.activeTouches.set(touchId, touchData);
+        this.positionTrackerForSample(touchId, touchData);
+        // A quiet oscillator bridge keeps the first note immediate while sample files decode.
+        // It is removed as soon as the sampled voice becomes ready.
+        const fallback = context.createOscillator();
+        const fallbackGain = context.createGain();
+        fallback.type = 'triangle';
+        fallback.frequency.setValueAtTime(frequency, now);
+        fallbackGain.gain.setValueAtTime(0.055, now);
+        fallback.connect(fallbackGain);
+        fallbackGain.connect(touchData.sampleMix);
+        fallback.start(now);
+        touchData.fallbackVoice = { oscillator: fallback, gain: fallbackGain };
+        this.pianoSamplesReady = this.preloadPianoSamples();
+        this.pianoSamplesReady.then(() => {
+            if (this.activeTouches.get(touchId) === touchData) {
+                this.updatePianoSampleVoice(touchData, touchData.currentFrequency, true);
+                const bridge = touchData.fallbackVoice;
+                if (bridge) {
+                    const readyAt = context.currentTime;
+                    bridge.gain.gain.setTargetAtTime(0, readyAt, 0.012);
+                    setTimeout(() => { try { bridge.oscillator.stop(); bridge.oscillator.disconnect(); bridge.gain.disconnect(); } catch (_) {} }, 100);
+                    touchData.fallbackVoice = null;
+                }
+            }
+        });
+    }
+
+    positionTrackerForSample(touchId, touch) {
+        touch.positionTracker = setInterval(() => {
+            if (this.activeTouches.get(touchId) !== touch || touch.currentClientX === null) return;
+            touch.positionHistory.push({ time: Date.now(), x: touch.currentClientX, y: touch.currentClientY });
+            touch.positionHistory = touch.positionHistory.filter(entry => entry.time > Date.now() - 600);
+        }, 50);
+    }
+
+    updatePianoSampleVoice(touch, frequency, initial = false) {
+        const zones = this.getPianoSampleZones().filter(zone => zone.buffer);
+        if (!zones.length) {
+            if (touch.fallbackVoice) touch.fallbackVoice.oscillator.frequency.setTargetAtTime(frequency, this.audioContext.currentTime, 0.012);
+            return;
+        }
+        if (touch.fallbackVoice) touch.fallbackVoice.oscillator.frequency.setTargetAtTime(frequency, this.audioContext.currentTime, 0.012);
+        const midi = 69 + 12 * Math.log2(frequency / 440);
+        let zone = zones.reduce((best, candidate) => Math.abs(candidate.midi - midi) < Math.abs(best.midi - midi) ? candidate : best, zones[0]);
+        const context = this.audioContext;
+        const now = context.currentTime;
+        let elapsedSamplePosition = null;
+        touch.sampleSources.forEach(voice => {
+            if (voice.ended) return;
+            const elapsed = Math.max(0, now - voice.positionUpdatedAt);
+            voice.samplePosition = Math.min(voice.zone.buffer.duration, voice.samplePosition + elapsed * voice.playbackRateValue);
+            voice.positionUpdatedAt = now;
+            if (elapsedSamplePosition === null || voice.samplePosition > elapsedSamplePosition) elapsedSamplePosition = voice.samplePosition;
+        });
+        let active = touch.sampleSources.get(zone.name);
+        if (active?.ended) {
+            touch.sampleSources.delete(zone.name);
+            active = null;
+        }
+        if (!active) {
+            const source = context.createBufferSource();
+            const gain = context.createGain();
+            source.buffer = zone.buffer;
+            // The initial source includes the hammer attack when it can start promptly. Later zones
+            // continue near the current recorded sample position, after the attack, and play to their
+            // natural end; they never loop around and repeat the decay tail.
+            const playbackRate = frequency / zone.frequency;
+            const attackOffset = Math.min(0.22, zone.buffer.duration * 0.12);
+            const tailOffset = Math.max(0, zone.buffer.duration - 0.06);
+            const elapsedPosition = elapsedSamplePosition ?? Math.max(0, now - touch.startTime) * playbackRate;
+            const offset = initial && (now - touch.startTime) < 0.12
+                ? 0
+                : Math.min(tailOffset, Math.max(attackOffset, elapsedPosition));
+            source.playbackRate.setValueAtTime(playbackRate, now);
+            gain.gain.setValueAtTime(0, now);
+            source.connect(gain);
+            gain.connect(touch.sampleMix);
+            active = { source, gain, zone, ended: false, cleanupTimer: null, samplePosition: offset, positionUpdatedAt: now, playbackRateValue: playbackRate };
+            source.onended = () => {
+                active.ended = true;
+                if (touch.sampleSources.get(zone.name) === active) touch.sampleSources.delete(zone.name);
+                try { source.disconnect(); gain.disconnect(); } catch (_) {}
+            };
+            source.start(now, offset);
+            touch.sampleSources.set(zone.name, active);
+        } else {
+            if (active.cleanupTimer) {
+                clearTimeout(active.cleanupTimer);
+                active.cleanupTimer = null;
+            }
+            active.playbackRateValue = frequency / zone.frequency;
+            active.source.playbackRate.setTargetAtTime(active.playbackRateValue, now, 0.012);
+        }
+        // Crossfade old and new zones without retriggering a sample's hammer attack.
+        touch.sampleSources.forEach((voice, name) => {
+            const selected = name === zone.name;
+            voice.gain.gain.cancelScheduledValues(now);
+            voice.gain.gain.setTargetAtTime(selected ? 0.5 : 0, now, 0.025);
+            if (!selected && !voice.cleanupTimer) {
+                voice.cleanupTimer = setTimeout(() => {
+                    voice.cleanupTimer = null;
+                    if (touch.sampleSources.get(name) !== voice) return;
+                    try { voice.source.stop(); } catch (_) {}
+                    touch.sampleSources.delete(name);
+                }, 160);
+            }
+        });
+    }
+
+    releasePianoSampleVoice(touch, releaseTime, endFrequency, hasInertia, glideTime = releaseTime, isQuickMute = false) {
+        const now = this.audioContext.currentTime;
+        if (touch.positionTracker) clearInterval(touch.positionTracker);
+        touch.gainNode.gain.cancelScheduledValues(now);
+        touch.gainNode.gain.setValueAtTime(touch.gainNode.gain.value, now);
+        if (isQuickMute) {
+            touch.gainNode.gain.linearRampToValueAtTime(touch.gainNode.gain.value * 0.3, now + 0.01);
+            touch.gainNode.gain.linearRampToValueAtTime(0, now + releaseTime);
+        } else {
+            touch.gainNode.gain.linearRampToValueAtTime(0, now + releaseTime);
+        }
+        if (hasInertia) {
+            // Keep the current sample zone at the release point, then glide its playback rate
+            // over the same interval as the oscillator engine. This avoids an end-frequency jump.
+            this.updatePianoSampleVoice(touch, touch.currentFrequency, false);
+            const duration = Math.max(0.02, glideTime);
+            touch.sampleSources.forEach(voice => {
+                const rate = voice.source.playbackRate;
+                const startRate = voice.playbackRateValue;
+                rate.cancelScheduledValues(now);
+                rate.setValueAtTime(startRate, now);
+                rate.linearRampToValueAtTime(endFrequency / voice.zone.frequency, now + duration);
+            });
+            if (touch.fallbackVoice) {
+                const frequency = touch.fallbackVoice.oscillator.frequency;
+                frequency.cancelScheduledValues(now);
+                frequency.setValueAtTime(touch.currentFrequency, now);
+                frequency.linearRampToValueAtTime(endFrequency, now + duration);
+            }
+        }
+        touch.sampleSources.forEach(({ source, cleanupTimer }) => {
+            if (cleanupTimer) clearTimeout(cleanupTimer);
+            try { source.stop(now + releaseTime + 0.04); } catch (_) {}
+        });
+        if (touch.fallbackVoice) {
+            const bridge = touch.fallbackVoice;
+            bridge.gain.gain.cancelScheduledValues(now);
+            bridge.gain.gain.setValueAtTime(bridge.gain.gain.value, now);
+            bridge.gain.gain.linearRampToValueAtTime(0, now + releaseTime);
+            try { bridge.oscillator.stop(now + releaseTime + 0.05); } catch (_) {}
+        }
+        setTimeout(() => {
+            touch.sampleSources.forEach(({ source, gain }) => { try { source.disconnect(); gain.disconnect(); } catch (_) {} });
+            try { touch.sampleMix.disconnect(); touch.gainNode.disconnect(); touch.edgeFadeGainNode.disconnect(); } catch (_) {}
+        }, (releaseTime + 0.12) * 1000);
+    }
+
     createTouchSound(touchId, frequency, layerIndex = 0, clientX = null, clientY = null) {
         if (!this.audioContext) return;
 
@@ -2327,6 +2540,11 @@ class Gradatone {
         if (!layer) return;
 
         const instrument = INSTRUMENTS[layer.instrument];
+
+        if (layer.instrument === 'piano') {
+            this.startPianoSampleTouch(touchId, frequency, layerIndex, clientX, clientY);
+            return;
+        }
 
         // Fixed velocity (no force sensitivity)
         const velocity = 0.5;
@@ -2806,6 +3024,16 @@ class Gradatone {
         const cutoffTime = Date.now() - 150;
         touch.frequencyHistory = touch.frequencyHistory.filter(entry => entry.time > cutoffTime);
 
+        if (touch.isPianoSampleVoice) {
+            this.updatePianoSampleVoice(touch, frequency);
+            if (clientX !== null && clientY !== null) {
+                const edgeFadeVolume = this.getEdgeFadeVolume(clientX, clientY, touch.layerIndex);
+                touch.edgeFadeGainNode.gain.setTargetAtTime(edgeFadeVolume, now, 0.02);
+            }
+            this.scheduleSnap(touchId, frequency);
+            return;
+        }
+
         // Update oscillator frequencies
         const instrument = INSTRUMENTS[touch.instrumentType];
         
@@ -2886,6 +3114,10 @@ class Gradatone {
 
             // Instant snap (no smooth transition since we're releasing)
             const instrument = INSTRUMENTS[touch.instrumentType];
+            if (touch.isPianoSampleVoice) {
+                touch.currentFrequency = snappedFreq;
+                this.updatePianoSampleVoice(touch, snappedFreq);
+            }
             touch.oscillators.forEach(({ osc, config }) => {
                 let freq = snappedFreq;
                 if (config.octave !== undefined) {
@@ -3047,11 +3279,13 @@ class Gradatone {
             filter.Q.setValueAtTime(filter.Q.value, now);
             filter.Q.linearRampToValueAtTime(0.1, now + 0.01); // Very low Q for muffled sound
             
-            // Reduce volume too for mute effect
-            gainNode.gain.cancelScheduledValues(now);
-            gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-            gainNode.gain.linearRampToValueAtTime(gainNode.gain.value * 0.3, now + 0.01); // Reduce to 30%
-            gainNode.gain.linearRampToValueAtTime(0, now + releaseTime); // Then fade out
+            // The sampled piano release helper schedules this same drop on its own gain node.
+            if (!touch.isPianoSampleVoice) {
+                gainNode.gain.cancelScheduledValues(now);
+                gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+                gainNode.gain.linearRampToValueAtTime(gainNode.gain.value * 0.3, now + 0.01); // Reduce to 30%
+                gainNode.gain.linearRampToValueAtTime(0, now + releaseTime); // Then fade out
+            }
         } else {
         }
 
@@ -3075,6 +3309,11 @@ class Gradatone {
         // Quick mute disables inertia
         const velocityThreshold = 50; // px/s
         const hasInertia = !isQuickMute && (isLandscape ? Math.abs(velocityX) > velocityThreshold : Math.abs(velocityY) > velocityThreshold);
+
+        if (touch.isPianoSampleVoice) {
+            this.releasePianoSampleVoice(touch, isQuickMute ? 0.12 : (INSTRUMENTS.piano.envelope?.release || this.releaseTime), endFreq, hasInertia, isQuickMute ? 0.12 : (INSTRUMENTS.piano.envelope?.release || this.releaseTime), isQuickMute);
+            return { endFrequency: endFreq, hasInertia, releaseTime: isQuickMute ? 0.12 : (INSTRUMENTS.piano.envelope?.release || this.releaseTime), currentFrequency: startFreq, velocityX, velocityY, startX, startY };
+        }
 
         if (hasInertia) {
 

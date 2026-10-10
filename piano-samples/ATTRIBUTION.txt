@@ -1,0 +1,6 @@
+Piano recordings: Salamander Grand Piano by Alexander Holm (Yamaha C5), licensed under the Creative Commons Attribution 3.0 License (CC BY 3.0).
+Original instrument and license: https://github.com/sfzinstruments/SalamanderGrandPiano
+Adapted sample collection: https://github.com/Tonejs/audio/tree/master/salamander
+License text: https://creativecommons.org/licenses/by/3.0/
+
+This app includes selected note samples from the Salamander collection, converted to mono 24 kHz, 72 kbit/s MP3 for compact playback. The recordings and sample mapping are by Alexander Holm. No endorsement is implied.

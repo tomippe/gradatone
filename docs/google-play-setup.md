@@ -15,10 +15,10 @@
 ## 初回チェックリスト
 
 1. `.env` に `GOOGLE_PLAY_PACKAGE_NAME=jp.tomippe.gradatone`（`.env.example` 参照）
-2. `~/.google-env` — サービスアカウント JSON パス
+2. `~/Secrets/google-play.env` — サービスアカウント JSON パス
 3. Play Console → **ユーザーと権限** に SA を招待（リリースを管理・掲載情報を管理）
 4. Play Console でアプリを新規作成（パッケージ名一致）
-5. `~/.android-env` または `native/android/keystore.properties` で署名
+5. `~/Secrets/android-signing.env` または `native/android/keystore.properties` で署名
 6. `./native/android/build.sh -skip-react` で AAB ビルド
 7. `ASSETLINKS_OUT_DIR=public/.well-known ./scripts/android-update-assetlinks.sh` → サイトルート `.well-known` へデプロイ
 8. `ruby scripts/play-publish.rb --aab native/android/dist/Gradatone.aab --track internal`
@@ -28,7 +28,7 @@
 
 ```bash
 cd /Users/tomippe/Cursor/gradatone
-source ~/.google-env && source .env
+source ~/Secrets/google-play.env && source .env
 export PROJECT_ROOT="$PWD"
 ruby -r ./scripts/play-client -e 'c=play_client; e=c.insert_edit; puts "OK edit=#{e}"; c.delete_edit(e)'
 ```

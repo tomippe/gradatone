@@ -22,12 +22,12 @@ def load_env_file(path)
 end
 
 def load_asc_env
-  load_env_file("~/.apple-env")
+  load_env_file("~/Secrets/apple-app-store.env")
   load_env_file(File.expand_path("../.env", __dir__))
 end
 
 def apple_private_keys_dir
-  File.expand_path(ENV.fetch("APPLE_PRIVATE_KEYS_DIR", "~/.apple/private_keys"))
+  File.expand_path(ENV.fetch("APPLE_PRIVATE_KEYS_DIR", "~/Secrets"))
 end
 
 def first_present(*values)
@@ -53,10 +53,7 @@ def asc_credentials
 
   if key_path.to_s.empty? && !key_id.to_s.empty?
     candidates = [
-      File.join(apple_private_keys_dir, "AuthKey_#{key_id}.p8"),
-      File.expand_path("~/.private_keys/AuthKey_#{key_id}.p8"),
-      File.expand_path("~/private_keys/AuthKey_#{key_id}.p8"),
-      File.expand_path("~/.appstoreconnect/private_keys/AuthKey_#{key_id}.p8")
+      File.join(apple_private_keys_dir, "AuthKey_#{key_id}.p8")
     ]
     key_path = candidates.find { |path| File.file?(path) }
   end

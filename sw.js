@@ -1,42 +1,33 @@
-// Service Worker for Gradatone PWA
-// Always fetch latest version, no caching
-
-const CACHE_NAME = 'gradatone-v1';
+// Gradatone keeps piano sample responses available for offline play.
+const PIANO_CACHE = 'gradatone-piano-samples-v1';
 
 self.addEventListener('install', (event) => {
-    console.log('Service Worker installing...');
-    // Skip waiting to activate immediately
     self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-    console.log('Service Worker activating...');
-    // Clear all caches on activation
     event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    return caches.delete(cacheName);
-                })
-            );
-        }).then(() => {
-            // Take control of all pages immediately
-            return self.clients.claim();
-        })
+        caches.keys().then((cacheNames) => Promise.all(
+            cacheNames.filter((name) => name !== PIANO_CACHE).map((name) => caches.delete(name))
+        )).then(() => self.clients.claim())
     );
 });
 
 self.addEventListener('fetch', (event) => {
-    // Always fetch from network, never use cache
-    event.respondWith(
-        fetch(event.request, {
-            cache: 'no-store'
-        }).catch(() => {
-            // If network fails, return a basic error response
-            return new Response('Network error', {
-                status: 408,
-                headers: { 'Content-Type': 'text/plain' }
-            });
-        })
-    );
+    const request = event.request;
+    const url = new URL(request.url);
+    if (request.method === 'GET' && url.origin === self.location.origin && /\/piano-samples\/[^/]+\.mp3$/.test(url.pathname)) {
+        event.respondWith(caches.open(PIANO_CACHE).then(async (cache) => {
+            const cached = await cache.match(request);
+            if (cached) return cached;
+            const response = await fetch(request);
+            if (response.ok) await cache.put(request, response.clone());
+            return response;
+        }));
+        return;
+    }
+    event.respondWith(fetch(request, { cache: 'no-store' }).catch(() => new Response('Network error', {
+        status: 408,
+        headers: { 'Content-Type': 'text/plain' }
+    })));
 });

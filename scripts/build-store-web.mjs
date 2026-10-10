@@ -124,6 +124,10 @@ if (usedWebIcons) {
 copyFile(path.join(nativeSrc, "style.css"), path.join(outDir, "style.css"));
 copyFile(path.join(nativeSrc, "app.js"), path.join(outDir, "app.js"));
 copyFile(path.join(root, "gearGreen.svg"), path.join(outDir, "gearGreen.svg"));
+// Include the compact piano sample bank and its CC BY attribution in packaged builds.
+for (const name of fs.readdirSync(path.join(nativeSrc, "piano-samples"))) {
+  copyFile(path.join(nativeSrc, "piano-samples", name), path.join(outDir, "piano-samples", name));
+}
 
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
 manifest.version = version;

@@ -19,7 +19,7 @@
 
 `build-common/android-keystore.sh` と同じ方式です。
 
-1. **`~/.android-env`**（推奨）— 雛形: `build-common/android-env.example`
+1. **`~/Secrets/android-signing.env`**（推奨）— 雛形: `build-common/android-env.example`
 2. **`native/android/keystore.properties`** — 雛形: `keystore.properties.example`
 3. 対話プロンプト
 
@@ -51,7 +51,7 @@ ASSETLINKS_OUT_DIR=public/.well-known ./scripts/android-update-assetlinks.sh
 ## Google Play
 
 1. [Play Console](https://play.google.com/console) でアプリ作成（パッケージ `jp.tomippe.gradatone`）
-2. `~/.google-env` + `.env` の `GOOGLE_PLAY_PACKAGE_NAME`
+2. `~/Secrets/google-play.env` + `.env` の `GOOGLE_PLAY_PACKAGE_NAME`
 3. 内部テストへ AAB アップロード: `ruby scripts/play-publish.rb --aab native/android/dist/Gradatone.aab --track internal`
 4. 掲載文言: `scripts/play-sync-listing.sh`（`store-locales.rb` 正本）
 

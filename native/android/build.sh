@@ -46,7 +46,7 @@ ensure_keystore() {
     android_keystore_prompt_if_missing
     if [ -z "$KEYSTORE_PASSWORD" ]; then
         echo "❌ キーストアがありません: $KEYSTORE"
-        echo "   ~/.android-env（build-common/android-env.example 参照）"
+        echo "   ~/Secrets/android-signing.env（build-common/android-env.example 参照）"
         echo "   または native/android/keystore.properties を設定してください"
         exit 1
     fi
@@ -110,8 +110,8 @@ if ! $SKIP_REACT; then
     echo "📦 （参考）ネイティブ同梱は不要。Web デプロイが Android の中身です。"
 fi
 
-if [ -f "$HOME/.android-env" ]; then
-    echo "  ✓ ~/.android-env"
+if [ -f "$HOME/Secrets/android-signing.env" ]; then
+    echo "  ✓ ~/Secrets/android-signing.env"
 elif [ -f "$SCRIPT_DIR/keystore.properties" ]; then
     echo "  ✓ keystore.properties"
 fi
@@ -161,7 +161,7 @@ gradle_build() {
         if [ -z "$KEYSTORE_PASSWORD" ] || [ ! -f "$KEYSTORE" ]; then
             echo "❌ リリースビルドには署名設定が必要です"
             echo "   cp keystore.properties.example keystore.properties"
-            echo "   または ~/.android-env（build-common/android-env.example）"
+            echo "   または ~/Secrets/android-signing.env（build-common/android-env.example）"
             exit 1
         fi
         echo "🔨 bundleRelease（Gradle + 署名）..."
