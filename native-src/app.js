@@ -715,7 +715,9 @@ function createPianoSustainBuffer(context, sourceBuffer, frequency) {
         }
     }
     if (peak > 0) {
-        const gain = 0.14 / peak;
+        // The instrument envelope applies the configured 18% sustain level later.
+        // Keep the loop at the same peak reference as the normalized attack sample.
+        const gain = 0.82 / peak;
         for (let channel = 0; channel < loop.numberOfChannels; channel++) {
             const target = loop.getChannelData(channel);
             for (let i = 0; i < target.length; i++) target[i] *= gain;
