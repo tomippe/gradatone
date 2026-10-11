@@ -2978,9 +2978,12 @@ class Gradatone {
         const measuredLevelDb = Math.max(-72, Math.min(6, lowerDb + (upperDb - lowerDb) * t));
         const upperOctaves = Math.max(0, (midi - 60) / 12);
         const bassWeight = Math.max(0, Math.min(1, (48 - midi) / 12));
+        // Low fundamentals are easy to lose on small speakers, so lift the
+        // whole bass register while retaining extra weight in the first partials.
+        const bassBodyDb = 3.5 * bassWeight;
         const bassLiftDb = partial === 1 ? 4.5 * bassWeight : (partial === 2 ? 1.5 * bassWeight : 0);
         return {
-            gain: 0.36 * Math.pow(10, (measuredLevelDb + bassLiftDb) / 20),
+            gain: 0.36 * Math.pow(10, (measuredLevelDb + bassBodyDb + bassLiftDb) / 20),
             decay: Math.max(0.16, config.partialDecay * Math.pow(2, -0.28 * upperOctaves - 0.08 * upperPartials) * (partial === 1 ? 1 + 0.18 * bassWeight : 1)),
             sustain: config.partialSustain * Math.pow(2, -0.18 * upperOctaves - 0.10 * upperPartials) * (partial === 1 ? 1 + 0.08 * bassWeight : 1)
         };
