@@ -70,6 +70,32 @@ const SCALES = {
 };
 
 // Instrument Definitions
+// Relative partial levels measured from the bundled Salamander piano notes.
+// These are synthesis parameters only; the recordings are not used for playback.
+const PIANO_REFERENCE_SPECTRA = [
+    [33, [0, 37, 33, 23, 24, 14, 24, 2]],
+    [36, [0, 24, 13, 14, 9, 3, 4, -18]],
+    [39, [0, 0, -5, -7, -7, -12, -13, -33]],
+    [42, [0, -12, -13, -16, -16, -18, -16, -39]],
+    [45, [0, -3, -7, -14, -15, -16, -17, -33]],
+    [48, [0, -4, -11, -33, -25, -21, -21, -43]],
+    [51, [0, -3, -8, -11, -19, -21, -18, -35]],
+    [54, [0, 19, 14, 11, 8, 4, 12, -25]],
+    [57, [0, -1, -18, -9, -17, -16, -21, -23]],
+    [60, [0, 4, -19, -16, -15, -18, -18, -31]],
+    [63, [0, -4, -10, -16, -15, -26, -14, -28]],
+    [66, [0, -4, -18, -17, -36, -24, -23, -36]],
+    [69, [0, -13, -21, -23, -26, -39, -29, -29]],
+    [72, [0, -11, -17, -29, -26, -28, -36, -39]],
+    [75, [0, -16, -30, -32, -32, -49, -48, -48]],
+    [78, [0, -21, -32, -42, -51, -48, -54, -63]],
+    [81, [0, -20, -32, -44, -46, -49, -69, -67]],
+    [84, [0, -15, -31, -42, -57, -59, -74, -77]],
+    [87, [0, -21, -23, -34, -56, -62, -81, -93]],
+    [90, [0, -31, -56, -52, -83, -72, -90, -100]],
+    [93, [0, -21, -43, -57, -81, -81, -100, -100]]
+];
+
 const INSTRUMENTS = {
     piano: {
         name: 'Piano',
@@ -2371,12 +2397,7 @@ class Gradatone {
             this.applyPianoPartialProfile(touch, snappedFreq, now);
         }
         touch.oscillators.forEach(({ osc, config }) => {
-            let freq = snappedFreq;
-            if (config.octave !== undefined) {
-                freq = snappedFreq * Math.pow(2, config.octave);
-            } else if (config.partial !== undefined) {
-                freq = snappedFreq * config.partial;
-            }
+            const freq = this.getOscillatorFrequency(snappedFreq, config, touch.instrumentType);
             osc.frequency.setTargetAtTime(freq, now, transitionTime);
         });
 
@@ -2411,14 +2432,44 @@ class Gradatone {
     }
 
     getPianoPartialProfile(frequency, config) {
-        const upperOctaves = Math.max(0, Math.log2(Math.max(27.5, frequency) / 261.63));
         const partial = Math.max(1, config.partial || 1);
         const upperPartials = partial - 1;
+        const midi = 69 + 12 * Math.log2(Math.max(27.5, frequency) / 440);
+        let lower = PIANO_REFERENCE_SPECTRA[0];
+        let upper = PIANO_REFERENCE_SPECTRA[PIANO_REFERENCE_SPECTRA.length - 1];
+        for (let i = 1; i < PIANO_REFERENCE_SPECTRA.length; i++) {
+            if (midi <= PIANO_REFERENCE_SPECTRA[i][0]) {
+                lower = PIANO_REFERENCE_SPECTRA[i - 1];
+                upper = PIANO_REFERENCE_SPECTRA[i];
+                break;
+            }
+        }
+        const t = lower === upper ? 0 : Math.max(0, Math.min(1, (midi - lower[0]) / (upper[0] - lower[0])));
+        const lowerDb = lower[1][partial - 1] ?? (lower[1][7] - 8 * (partial - 8));
+        const upperDb = upper[1][partial - 1] ?? (upper[1][7] - 8 * (partial - 8));
+        const measuredLevelDb = Math.max(-72, Math.min(6, lowerDb + (upperDb - lowerDb) * t));
+        const upperOctaves = Math.max(0, (midi - 60) / 12);
         return {
-            gain: config.gain * Math.pow(2, -0.24 * upperOctaves * upperPartials),
+            gain: 0.36 * Math.pow(10, measuredLevelDb / 20),
             decay: Math.max(0.16, config.partialDecay * Math.pow(2, -0.28 * upperOctaves - 0.08 * upperPartials)),
             sustain: config.partialSustain * Math.pow(2, -0.18 * upperOctaves - 0.10 * upperPartials)
         };
+    }
+
+    getPianoPartialFrequency(frequency, partial) {
+        const upperOctaves = (69 + 12 * Math.log2(Math.max(27.5, frequency) / 440) - 60) / 12;
+        const inharmonicity = Math.max(0.00002, Math.min(0.008, 0.00042 * Math.pow(2, 1.25 * upperOctaves)));
+        return frequency * partial * Math.sqrt((1 + inharmonicity * partial * partial) / (1 + inharmonicity));
+    }
+
+    getOscillatorFrequency(frequency, config, instrumentType) {
+        if (config.octave !== undefined) return frequency * Math.pow(2, config.octave);
+        if (config.partial !== undefined) {
+            return instrumentType === 'piano'
+                ? this.getPianoPartialFrequency(frequency, config.partial)
+                : frequency * config.partial;
+        }
+        return frequency;
     }
 
     applyPianoPartialProfile(touch, frequency, now) {
@@ -2715,12 +2766,7 @@ class Gradatone {
             osc.type = oscDef.type;
 
             // Calculate frequency based on definition
-            let freq = frequency;
-            if (oscDef.octave !== undefined) {
-                freq = frequency * Math.pow(2, oscDef.octave);
-            } else if (oscDef.partial !== undefined) {
-                freq = frequency * oscDef.partial;
-            }
+            const freq = this.getOscillatorFrequency(frequency, oscDef, layer.instrument);
             if (oscDef.detune !== undefined) {
                 osc.detune.setValueAtTime(oscDef.detune, now);
             }
@@ -3218,12 +3264,7 @@ class Gradatone {
             // Smooth transition when unsnapping (30ms)
             const unsnapTransitionTime = 0.03;
             touch.oscillators.forEach(({ osc, config }) => {
-                let freq = frequency;
-                if (config.octave !== undefined) {
-                    freq = frequency * Math.pow(2, config.octave);
-                } else if (config.partial !== undefined) {
-                    freq = frequency * config.partial;
-                }
+                const freq = this.getOscillatorFrequency(frequency, config, touch.instrumentType);
 
                 osc.frequency.cancelScheduledValues(now);
                 osc.frequency.setValueAtTime(osc.frequency.value, now);
@@ -3232,12 +3273,7 @@ class Gradatone {
         } else {
             // Smooth small frequency steps on the synthesized piano to avoid zipper noise.
             touch.oscillators.forEach(({ osc, config }) => {
-                let freq = frequency;
-                if (config.octave !== undefined) {
-                    freq = frequency * Math.pow(2, config.octave);
-                } else if (config.partial !== undefined) {
-                    freq = frequency * config.partial;
-                }
+                const freq = this.getOscillatorFrequency(frequency, config, touch.instrumentType);
 
                 osc.frequency.cancelScheduledValues(now);
                 if (touch.instrumentType === 'piano') {
@@ -3300,13 +3336,12 @@ class Gradatone {
                 touch.currentFrequency = snappedFreq;
                 this.updatePianoSampleVoice(touch, snappedFreq);
             }
+            if (touch.instrumentType === 'piano' && touch.filter) {
+                touch.filter.frequency.setTargetAtTime(this.getPianoCutoff(snappedFreq), now, 0.02);
+                this.applyPianoPartialProfile(touch, snappedFreq, now);
+            }
             touch.oscillators.forEach(({ osc, config }) => {
-                let freq = snappedFreq;
-                if (config.octave !== undefined) {
-                    freq = snappedFreq * Math.pow(2, config.octave);
-                } else if (config.partial !== undefined) {
-                    freq = snappedFreq * config.partial;
-                }
+                const freq = this.getOscillatorFrequency(snappedFreq, config, touch.instrumentType);
                 osc.frequency.cancelScheduledValues(now);
                 osc.frequency.setValueAtTime(freq, now);
             });
@@ -3501,16 +3536,8 @@ class Gradatone {
 
             // Use exponentialRampToValueAtTime for smooth frequency change on logarithmic scale
             oscillators.forEach(({ osc, config }) => {
-                let startF = startFreq;
-                let endF = endFreq;
-
-                if (config.octave !== undefined) {
-                    startF = startFreq * Math.pow(2, config.octave);
-                    endF = endFreq * Math.pow(2, config.octave);
-                } else if (config.partial !== undefined) {
-                    startF = startFreq * config.partial;
-                    endF = endFreq * config.partial;
-                }
+                const startF = this.getOscillatorFrequency(startFreq, config, touch.instrumentType);
+                const endF = this.getOscillatorFrequency(endFreq, config, touch.instrumentType);
 
                 try {
                     osc.frequency.cancelScheduledValues(now);
