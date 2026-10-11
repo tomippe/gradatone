@@ -64,6 +64,7 @@ cp style.css "$DEPLOY_DIR/"
 cp app.js "$DEPLOY_DIR/"
 cp sw.js "$DEPLOY_DIR/"
 cp manifest.json "$DEPLOY_DIR/"
+cp -R piano-samples "$DEPLOY_DIR/"
 echo "  ✓ 主要ファイルをコピーしました"
 
 # アイコンファイルをコピー
