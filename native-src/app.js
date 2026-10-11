@@ -101,7 +101,7 @@ const INSTRUMENTS = {
         envelope: {
             attack: 0.001,    // Very fast attack for sharp initial transient
             decay: 1.2,       // Longer decay for piano sustain
-            sustain: 0.18,    // Low sustain (strings dampen naturally)
+            sustain: 0.45,    // Keep the sampled piano body audible while the touch is held
             holdTime: 5.0,
             release: 1.8      // Piano samples need a longer audible key-release tail
         }
@@ -2978,18 +2978,11 @@ class Gradatone {
         const pianoPeak = 0.72;
         const pianoSustain = pianoPeak * pianoEnvelope.sustain;
         const pianoDecayEnd = now + pianoEnvelope.attack + pianoEnvelope.decay;
-        const pianoHoldEnd = pianoDecayEnd + pianoEnvelope.holdTime;
-        const pianoFadeEnd = pianoHoldEnd + 3.0;
         touchData.pianoEnvelopePeak = pianoPeak;
         touchData.pianoEnvelopeSustain = pianoSustain;
-        touchData.pianoEnvelopeDecayEnd = pianoDecayEnd;
-        touchData.pianoEnvelopeHoldEnd = pianoHoldEnd;
-        touchData.pianoEnvelopeFadeEnd = pianoFadeEnd;
         touchData.gainNode.gain.setValueAtTime(0, now);
         touchData.gainNode.gain.linearRampToValueAtTime(pianoPeak, now + pianoEnvelope.attack);
         touchData.gainNode.gain.linearRampToValueAtTime(pianoSustain, pianoDecayEnd);
-        touchData.gainNode.gain.setValueAtTime(pianoSustain, pianoHoldEnd);
-        touchData.gainNode.gain.linearRampToValueAtTime(0, pianoFadeEnd);
         touchData.sampleMix = context.createGain();
         touchData.sampleMix.connect(touchData.gainNode);
         touchData.gainNode.connect(edge);
@@ -3034,7 +3027,6 @@ class Gradatone {
         const env = INSTRUMENTS.piano.envelope;
         const attackEnd = env.attack;
         const decayEnd = attackEnd + env.decay;
-        const holdEnd = decayEnd + env.holdTime;
         const peak = touch.pianoEnvelopePeak;
         const sustain = touch.pianoEnvelopeSustain;
         if (elapsed < attackEnd) return peak * (elapsed / Math.max(0.001, env.attack));
@@ -3042,9 +3034,7 @@ class Gradatone {
             const progress = (elapsed - attackEnd) / Math.max(0.001, env.decay);
             return peak + (sustain - peak) * progress;
         }
-        if (elapsed < holdEnd) return sustain;
-        if (elapsed < holdEnd + 3.0) return sustain * (1 - (elapsed - holdEnd) / 3.0);
-        return 0;
+        return sustain;
     }
 
     updatePianoSampleVoice(touch, frequency, initial = false) {
