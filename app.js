@@ -2366,6 +2366,9 @@ class Gradatone {
         // Smoothly transition to snapped frequency
         const instrument = INSTRUMENTS[touch.instrumentType];
         if (touch.isPianoSampleVoice) this.updatePianoSampleVoice(touch, snappedFreq);
+        if (touch.instrumentType === 'piano' && touch.filter) {
+            touch.filter.frequency.setTargetAtTime(this.getPianoCutoff(snappedFreq), now, 0.025);
+        }
         touch.oscillators.forEach(({ osc, config }) => {
             let freq = snappedFreq;
             if (config.octave !== undefined) {
@@ -2396,6 +2399,14 @@ class Gradatone {
             // The actual finger position hasn't changed - only the indicator moved for visual feedback
             // Edge fade volume should reflect the actual finger position, not the snapped indicator position
         }
+    }
+
+    // Keep the piano's fundamental clear while progressively softening upper
+    // partials in the top register, where a bright additive tone sounds metallic.
+    getPianoCutoff(frequency) {
+        const safeFrequency = Math.max(27.5, frequency);
+        const brightnessLimit = 11000 * Math.sqrt(440 / safeFrequency);
+        return Math.max(safeFrequency * 1.8, Math.min(11000, brightnessLimit));
     }
 
     getPianoSampleZones() {
@@ -2714,7 +2725,10 @@ class Gradatone {
         // Create filter
         const filter = this.audioContext.createBiquadFilter();
         filter.type = instrument.filter.type;
-        filter.frequency.setValueAtTime(instrument.filter.frequency, now);
+        const initialFilterFrequency = layer.instrument === 'piano'
+            ? this.getPianoCutoff(frequency)
+            : instrument.filter.frequency;
+        filter.frequency.setValueAtTime(initialFilterFrequency, now);
         filter.Q.setValueAtTime(instrument.filter.Q, now);
 
         // Connect oscillators to filter
@@ -3169,6 +3183,10 @@ class Gradatone {
 
         // Update oscillator frequencies
         const instrument = INSTRUMENTS[touch.instrumentType];
+
+        if (touch.instrumentType === 'piano' && touch.filter) {
+            touch.filter.frequency.setTargetAtTime(this.getPianoCutoff(frequency), now, 0.018);
+        }
         
         if (isUnsnapping) {
             // Smooth transition when unsnapping (30ms)
