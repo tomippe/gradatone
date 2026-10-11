@@ -2895,6 +2895,7 @@ class Gradatone {
         if (touch.isPianoSampleVoice) this.updatePianoSampleVoice(touch, snappedFreq);
         if (touch.instrumentType === 'piano' && touch.filter) {
             touch.filter.frequency.setTargetAtTime(this.getPianoCutoff(snappedFreq), now, 0.025);
+            this.applyPianoPartialProfile(touch, snappedFreq, now);
         }
         touch.oscillators.forEach(({ osc, config }) => {
             let freq = snappedFreq;
@@ -2934,6 +2935,27 @@ class Gradatone {
         const safeFrequency = Math.max(27.5, frequency);
         const brightnessLimit = 11000 * Math.sqrt(440 / safeFrequency);
         return Math.max(safeFrequency * 1.8, Math.min(11000, brightnessLimit));
+    }
+
+    getPianoPartialProfile(frequency, config) {
+        const upperOctaves = Math.max(0, Math.log2(Math.max(27.5, frequency) / 261.63));
+        const partial = Math.max(1, config.partial || 1);
+        const upperPartials = partial - 1;
+        return {
+            gain: config.gain * Math.pow(2, -0.24 * upperOctaves * upperPartials),
+            decay: Math.max(0.16, config.partialDecay * Math.pow(2, -0.28 * upperOctaves - 0.08 * upperPartials)),
+            sustain: config.partialSustain * Math.pow(2, -0.18 * upperOctaves - 0.10 * upperPartials)
+        };
+    }
+
+    applyPianoPartialProfile(touch, frequency, now) {
+        touch.oscillators.forEach(({ gain, config }) => {
+            if (!config.partialDecay) return;
+            const profile = this.getPianoPartialProfile(frequency, config);
+            gain.gain.cancelScheduledValues(now);
+            gain.gain.setValueAtTime(gain.gain.value, now);
+            gain.gain.setTargetAtTime(profile.gain * profile.sustain, now, Math.max(0.015, profile.decay / 4.6));
+        });
     }
 
     getPianoSampleZones() {
@@ -3235,10 +3257,13 @@ class Gradatone {
             // Create gain for this oscillator
             const oscGain = this.audioContext.createGain();
             if (oscDef.partialDecay) {
+                const profile = layer.instrument === 'piano'
+                    ? this.getPianoPartialProfile(frequency, oscDef)
+                    : oscDef;
                 const partialAttack = 0.008;
                 oscGain.gain.setValueAtTime(0, now);
-                oscGain.gain.linearRampToValueAtTime(oscDef.gain, now + partialAttack);
-                oscGain.gain.setTargetAtTime(oscDef.gain * oscDef.partialSustain, now + partialAttack, oscDef.partialDecay / 4.6);
+                oscGain.gain.linearRampToValueAtTime(profile.gain, now + partialAttack);
+                oscGain.gain.setTargetAtTime(profile.gain * profile.sustain, now + partialAttack, profile.decay / 4.6);
             } else {
                 oscGain.gain.setValueAtTime(oscDef.gain, now);
             }
@@ -3718,6 +3743,7 @@ class Gradatone {
 
         if (touch.instrumentType === 'piano' && touch.filter) {
             touch.filter.frequency.setTargetAtTime(this.getPianoCutoff(frequency), now, 0.018);
+            this.applyPianoPartialProfile(touch, frequency, now);
         }
         
         if (isUnsnapping) {
