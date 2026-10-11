@@ -2478,6 +2478,14 @@ class Gradatone {
         this.pianoSamplesReady = this.preloadPianoSamples();
         this.pianoSamplesReady.then(() => {
             if (this.activeTouches.get(touchId) === touchData) {
+                const readyAt = context.currentTime;
+                if (readyAt - touchData.startTime > 0.12) {
+                    touchData.startTime = readyAt;
+                    touchData.gainNode.gain.cancelScheduledValues(readyAt);
+                    touchData.gainNode.gain.setValueAtTime(0, readyAt);
+                    touchData.gainNode.gain.linearRampToValueAtTime(pianoPeak, readyAt + pianoEnvelope.attack);
+                    touchData.gainNode.gain.linearRampToValueAtTime(pianoSustain, readyAt + pianoEnvelope.attack + pianoEnvelope.decay);
+                }
                 this.updatePianoSampleVoice(touchData, touchData.currentFrequency, true);
             }
         });
@@ -2547,7 +2555,7 @@ class Gradatone {
             const loopStart = Math.min(1.2, zone.buffer.duration * 0.2);
             const loopEnd = Math.min(zone.buffer.duration - 0.1, loopStart + zone.sustainBuffer.duration);
             const loopSpan = Math.max(0.01, loopEnd - loopStart);
-            const offset = initial && (now - touch.startTime) < 0.12 ? 0 : (elapsedPosition >= loopEnd
+            const offset = initial ? 0 : (elapsedPosition >= loopEnd
                 ? loopStart + ((elapsedPosition - loopStart) % loopSpan)
                 : Math.min(tailOffset, Math.max(attackOffset, elapsedPosition)));
             source.playbackRate.setValueAtTime(playbackRate, now);
@@ -2558,7 +2566,7 @@ class Gradatone {
             gain.connect(touch.sampleMix);
             sustainSource.connect(sustainGain);
             sustainGain.connect(touch.sampleMix);
-            const noteAge = Math.max(0, now - touch.startTime);
+            const noteAge = initial ? 0 : Math.max(0, now - touch.startTime);
             const sustainLevel = 0.65;
             if (noteAge < 1.05) {
                 const fadeStart = Math.max(now, touch.startTime + 0.45);
