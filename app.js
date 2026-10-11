@@ -697,15 +697,26 @@ function normalizePianoBuffer(buffer, targetPeak = 0.82) {
 function createPianoSustainBuffer(context, sourceBuffer, frequency) {
     const start = Math.min(1.2, sourceBuffer.duration * 0.2);
     const cycles = Math.max(1, Math.round(frequency * 1.15));
-    const end = Math.min(sourceBuffer.duration - 0.1, start + cycles / frequency);
+    const crossfadeSeconds = 0.08;
+    const end = Math.min(sourceBuffer.duration - 0.1, start + cycles / frequency + crossfadeSeconds);
     const firstFrame = Math.floor(start * sourceBuffer.sampleRate);
     const lastFrame = Math.max(firstFrame + 1, Math.floor(end * sourceBuffer.sampleRate));
-    const loop = context.createBuffer(sourceBuffer.numberOfChannels, lastFrame - firstFrame, sourceBuffer.sampleRate);
+    const crossfadeFrames = Math.min(Math.floor(sourceBuffer.sampleRate * crossfadeSeconds), Math.floor((lastFrame - firstFrame) / 4));
+    const loop = context.createBuffer(sourceBuffer.numberOfChannels, lastFrame - firstFrame - crossfadeFrames, sourceBuffer.sampleRate);
     let peak = 0;
     for (let channel = 0; channel < sourceBuffer.numberOfChannels; channel++) {
-        const source = sourceBuffer.getChannelData(channel).subarray(firstFrame, lastFrame);
+        const sourceData = sourceBuffer.getChannelData(channel);
         const target = loop.getChannelData(channel);
-        target.set(source);
+        const loopFrames = target.length;
+        const fadeStart = lastFrame - crossfadeFrames;
+        for (let i = 0; i < loopFrames; i++) {
+            if (i < crossfadeFrames) {
+                const mix = i / Math.max(1, crossfadeFrames - 1);
+                target[i] = sourceData[firstFrame + i] * mix + sourceData[fadeStart + i] * (1 - mix);
+            } else {
+                target[i] = sourceData[firstFrame + i];
+            }
+        }
         let mean = 0;
         for (let i = 0; i < target.length; i++) mean += target[i];
         mean /= target.length;
@@ -2462,28 +2473,10 @@ class Gradatone {
         touchData.gainNode.connect(edge);
         this.activeTouches.set(touchId, touchData);
         this.positionTrackerForSample(touchId, touchData);
-        // A quiet oscillator bridge keeps the first note immediate while sample files decode.
-        // It is removed as soon as the sampled voice becomes ready.
-        const fallback = context.createOscillator();
-        const fallbackGain = context.createGain();
-        fallback.type = 'triangle';
-        fallback.frequency.setValueAtTime(frequency, now);
-        fallbackGain.gain.setValueAtTime(0.055, now);
-        fallback.connect(fallbackGain);
-        fallbackGain.connect(touchData.sampleMix);
-        fallback.start(now);
-        touchData.fallbackVoice = { oscillator: fallback, gain: fallbackGain };
         this.pianoSamplesReady = this.preloadPianoSamples();
         this.pianoSamplesReady.then(() => {
             if (this.activeTouches.get(touchId) === touchData) {
                 this.updatePianoSampleVoice(touchData, touchData.currentFrequency, true);
-                const bridge = touchData.fallbackVoice;
-                if (bridge) {
-                    const readyAt = context.currentTime;
-                    bridge.gain.gain.setTargetAtTime(0, readyAt, 0.012);
-                    setTimeout(() => { try { bridge.oscillator.stop(); bridge.oscillator.disconnect(); bridge.gain.disconnect(); } catch (_) {} }, 100);
-                    touchData.fallbackVoice = null;
-                }
             }
         });
     }
@@ -2513,11 +2506,7 @@ class Gradatone {
 
     updatePianoSampleVoice(touch, frequency, initial = false) {
         const zones = this.getPianoSampleZones().filter(zone => zone.buffer);
-        if (!zones.length) {
-            if (touch.fallbackVoice) touch.fallbackVoice.oscillator.frequency.setTargetAtTime(frequency, this.audioContext.currentTime, 0.012);
-            return;
-        }
-        if (touch.fallbackVoice) touch.fallbackVoice.oscillator.frequency.setTargetAtTime(frequency, this.audioContext.currentTime, 0.012);
+        if (!zones.length) return;
         const midi = 69 + 12 * Math.log2(frequency / 440);
         let zone = zones.reduce((best, candidate) => Math.abs(candidate.midi - midi) < Math.abs(best.midi - midi) ? candidate : best, zones[0]);
         const context = this.audioContext;
@@ -2547,6 +2536,7 @@ class Gradatone {
             const sustainGain = context.createGain();
             sustainSource.buffer = zone.sustainBuffer;
             sustainSource.loop = true;
+            sustainSource.loopStart = 0;
             sustainSource.loopEnd = zone.sustainBuffer.duration;
             const playbackRate = frequency / zone.frequency;
             const attackOffset = Math.min(0.22, zone.buffer.duration * 0.12);
@@ -2601,9 +2591,9 @@ class Gradatone {
         touch.sampleSources.forEach((voice, name) => {
             const selected = name === zone.name;
             voice.gain.gain.cancelScheduledValues(now);
-            voice.gain.gain.setTargetAtTime(selected ? 0.72 : 0, now, 0.025);
+            voice.gain.gain.setTargetAtTime(selected ? 0.72 : 0, now, 0.012);
             voice.sustainGain.gain.cancelScheduledValues(now);
-            voice.sustainGain.gain.setTargetAtTime(selected ? 0.65 : 0, now, 0.025);
+            voice.sustainGain.gain.setTargetAtTime(selected ? 0.65 : 0, now, 0.012);
             if (!selected && !voice.cleanupTimer) {
                 voice.cleanupTimer = setTimeout(() => {
                     voice.cleanupTimer = null;
@@ -2612,7 +2602,7 @@ class Gradatone {
                     try { voice.source.stop(); } catch (_) {}
                     try { voice.sustainSource.stop(); } catch (_) {}
                     touch.sampleSources.delete(name);
-                }, 160);
+                }, 70);
             }
         });
     }
@@ -2647,25 +2637,12 @@ class Gradatone {
                 sustainRate.setValueAtTime(startRate, now);
                 sustainRate.linearRampToValueAtTime(endFrequency / voice.zone.frequency, now + duration);
             });
-            if (touch.fallbackVoice) {
-                const frequency = touch.fallbackVoice.oscillator.frequency;
-                frequency.cancelScheduledValues(now);
-                frequency.setValueAtTime(touch.currentFrequency, now);
-                frequency.linearRampToValueAtTime(endFrequency, now + duration);
-            }
         }
         touch.sampleSources.forEach(voice => {
             if (voice.cleanupTimer) clearTimeout(voice.cleanupTimer);
             try { if (!voice.attackEnded) voice.source.stop(now + releaseTime + 0.04); } catch (_) {}
             try { voice.sustainSource.stop(now + releaseTime + 0.04); } catch (_) {}
         });
-        if (touch.fallbackVoice) {
-            const bridge = touch.fallbackVoice;
-            bridge.gain.gain.cancelScheduledValues(now);
-            bridge.gain.gain.setValueAtTime(bridge.gain.gain.value, now);
-            bridge.gain.gain.linearRampToValueAtTime(0, now + releaseTime);
-            try { bridge.oscillator.stop(now + releaseTime + 0.05); } catch (_) {}
-        }
         setTimeout(() => {
             touch.sampleSources.forEach(voice => {
                 try { voice.source.disconnect(); voice.gain.disconnect(); } catch (_) {}
