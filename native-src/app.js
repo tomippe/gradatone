@@ -2999,6 +2999,8 @@ class Gradatone {
         touchData.gainNode.connect(edge);
         this.activeTouches.set(touchId, touchData);
         this.positionTrackerForSample(touchId, touchData);
+        // Match oscillator instruments: a stationary piano touch should still snap after the delay.
+        this.scheduleSnap(touchId, frequency);
         this.pianoSamplesReady = this.preloadPianoSamples();
         this.pianoSamplesReady.then(() => {
             if (this.activeTouches.get(touchId) === touchData) {

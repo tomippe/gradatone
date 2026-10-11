@@ -2473,6 +2473,8 @@ class Gradatone {
         touchData.gainNode.connect(edge);
         this.activeTouches.set(touchId, touchData);
         this.positionTrackerForSample(touchId, touchData);
+        // Match oscillator instruments: a stationary piano touch should still snap after the delay.
+        this.scheduleSnap(touchId, frequency);
         this.pianoSamplesReady = this.preloadPianoSamples();
         this.pianoSamplesReady.then(() => {
             if (this.activeTouches.get(touchId) === touchData) {
@@ -3419,8 +3421,8 @@ class Gradatone {
         const endScreenY = startY + velocityY * releaseTime;
 
         // Convert screen position to canvas position
-        const endCanvasX = endScreenX - rect.left;
-        const endCanvasY = endScreenY - rect.top;
+        const endCanvasX = Math.max(0, Math.min(this.canvasWidth, endScreenX - rect.left));
+        const endCanvasY = Math.max(0, Math.min(this.canvasHeight, endScreenY - rect.top));
 
         // Calculate end frequency from end position
         endFreq = this.getFrequencyFromPosition(endCanvasX, endCanvasY);
