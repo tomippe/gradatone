@@ -103,7 +103,7 @@ const INSTRUMENTS = {
             decay: 1.2,       // Longer decay for piano sustain
             sustain: 0.45,    // Keep the sampled piano body audible while the touch is held
             holdTime: 5.0,
-            release: 1.8      // Piano samples need a longer audible key-release tail
+            release: 0.5      // Restore the original piano key-release time
         }
     },
     organ: {
@@ -738,7 +738,7 @@ function createPianoSustainBuffer(context, sourceBuffer, frequency) {
 }
 
 function createPianoRoomReverb(context, destination) {
-    const duration = 3.2;
+    const duration = 2.4;
     const length = Math.floor(context.sampleRate * duration);
     const impulse = context.createBuffer(2, length, context.sampleRate);
     for (let channel = 0; channel < 2; channel++) {
@@ -750,14 +750,14 @@ function createPianoRoomReverb(context, destination) {
             const noise = (seed / 0x80000000) - 1;
             const time = i / length;
             const dampedNoise = noise * 0.72 + previous * 0.28;
-            data[i] = dampedNoise * Math.pow(1 - time, 1.9) * (channel ? 0.92 : 1);
+            data[i] = dampedNoise * Math.pow(1 - time, 3.2) * (channel ? 0.92 : 1);
             previous = noise;
         }
     }
     const convolver = context.createConvolver();
     convolver.buffer = impulse;
     const wet = context.createGain();
-    wet.gain.value = 0.3;
+    wet.gain.value = 0.2;
     convolver.connect(wet);
     wet.connect(destination);
     return convolver;
@@ -3421,8 +3421,8 @@ class Gradatone {
         const endScreenY = startY + velocityY * releaseTime;
 
         // Convert screen position to canvas position
-        const endCanvasX = Math.max(0, Math.min(this.canvasWidth, endScreenX - rect.left));
-        const endCanvasY = Math.max(0, Math.min(this.canvasHeight, endScreenY - rect.top));
+        const endCanvasX = endScreenX - rect.left;
+        const endCanvasY = endScreenY - rect.top;
 
         // Calculate end frequency from end position
         endFreq = this.getFrequencyFromPosition(endCanvasX, endCanvasY);
