@@ -75,35 +75,27 @@ const INSTRUMENTS = {
         name: 'Piano',
         category: 'Keyboards',
         oscillators: [
-            // Fundamental - triangle wave for rich but mellow tone
-            { type: 'triangle', detune: 0, gain: 0.03, octave: 0 },
-            { type: 'triangle', detune: 0, gain: 0.03, octave: 1 },
-            // Deep sub-bass for piano body weight
-            { type: 'triangle', octave: 0, gain: 0.12 },
-            // 2nd harmonic - important for piano character
-            { type: 'sine', partial: 1, detune: 1, gain: 0.18, octave: 0 },
-            // 3rd harmonic - adds depth without harshness
-            { type: 'sine', partial: 1, detune: 2, gain: 0.06, octave: 1 },
-            // 4th harmonic - very subtle
-            { type: 'sine', partial: 4, detune: 3, gain: 0.06, octave: 0 }
+            { type: 'sine', partial: 1, gain: 0.36, partialSustain: 0.68, partialDecay: 2.4 },
+            { type: 'sine', partial: 2, gain: 0.24, partialSustain: 0.46, partialDecay: 1.8 },
+            { type: 'sine', partial: 3, gain: 0.16, partialSustain: 0.30, partialDecay: 1.35 },
+            { type: 'sine', partial: 4, gain: 0.11, partialSustain: 0.18, partialDecay: 1.05 },
+            { type: 'sine', partial: 5, gain: 0.075, partialSustain: 0.10, partialDecay: 0.82 },
+            { type: 'sine', partial: 6, gain: 0.05, partialSustain: 0.06, partialDecay: 0.65 },
+            { type: 'sine', partial: 7, gain: 0.035, partialSustain: 0.035, partialDecay: 0.5 },
+            { type: 'sine', partial: 8, gain: 0.025, partialSustain: 0.02, partialDecay: 0.4 }
         ],
         // pitchBend: { startOffset: -2000, duration: 0.005, delay: 0 },  // Start very low, rise to original
-        filter: { type: 'lowpass', frequency: 1000, Q: 0.6 }, // Slightly brighter
+        filter: { type: 'lowpass', frequency: 12000, Q: 0.55 },
         // Hammer noise for realistic attack transient
         hammerNoise: {
-            enabled: true,
-            gain: 0.4,            // Volume of noise burst (reduced to prevent clipping)
-            attack: 0.01,           // Instant attack
-            decay: 0.08,            // Very short decay
-            filterFreq: 150,        // Bandpass center frequency
-            filterQ: 3.0             // Moderate Q to prevent resonance peaks
+            enabled: false
         },
         envelope: {
-            attack: 0.001,    // Very fast attack for sharp initial transient
-            decay: 1.2,       // Longer decay for piano sustain
-            sustain: 0.45,    // Keep the sampled piano body audible while the touch is held
+            attack: 0.006,
+            decay: 1.2,
+            sustain: 0.40,
             holdTime: 5.0,
-            release: 0.25     // Short, controlled key release
+            release: 0.25
         }
     },
     organ: {
@@ -2552,7 +2544,6 @@ class Gradatone {
 
         if (this.isAudioRunning()) {
             this.hidePowerButton();
-            this.preloadPianoSamples();
             return true;
         }
 
@@ -3208,13 +3199,8 @@ class Gradatone {
 
         const instrument = INSTRUMENTS[layer.instrument];
 
-        if (layer.instrument === 'piano') {
-            this.startPianoSampleTouch(touchId, frequency, layerIndex, clientX, clientY);
-            return;
-        }
-
         // Fixed velocity (no force sensitivity)
-        const velocity = 0.5;
+        const velocity = layer.instrument === 'piano' ? 0.8 : 0.5;
 
 
         // Create oscillators based on instrument definition
@@ -3237,7 +3223,14 @@ class Gradatone {
 
             // Create gain for this oscillator
             const oscGain = this.audioContext.createGain();
-            oscGain.gain.setValueAtTime(oscDef.gain, now);
+            if (oscDef.partialDecay) {
+                const partialAttack = 0.008;
+                oscGain.gain.setValueAtTime(0, now);
+                oscGain.gain.linearRampToValueAtTime(oscDef.gain, now + partialAttack);
+                oscGain.gain.setTargetAtTime(oscDef.gain * oscDef.partialSustain, now + partialAttack, oscDef.partialDecay / 4.6);
+            } else {
+                oscGain.gain.setValueAtTime(oscDef.gain, now);
+            }
 
             osc.connect(oscGain);
             osc.start(now);
@@ -3378,10 +3371,10 @@ class Gradatone {
             }
             gainNode.gain.linearRampToValueAtTime(velocity, now + envDelay + env.attack);
             gainNode.gain.linearRampToValueAtTime(velocity * env.sustain, now + envDelay + env.attack + env.decay);
-            // Hold sustain level for holdTime
-            gainNode.gain.linearRampToValueAtTime(velocity * env.sustain, now + envDelay + env.attack + env.decay + holdTime);
-            // Then gradually fade out
-            gainNode.gain.linearRampToValueAtTime(0, now + envDelay + env.attack + env.decay + holdTime + fadeOutTime);
+            if (layer.instrument !== 'piano') {
+                gainNode.gain.linearRampToValueAtTime(velocity * env.sustain, now + envDelay + env.attack + env.decay + holdTime);
+                gainNode.gain.linearRampToValueAtTime(0, now + envDelay + env.attack + env.decay + holdTime + fadeOutTime);
+            }
         } else {
             // Use default envelope (for backward compatibility)
             gainNode.gain.setValueAtTime(0, now);
@@ -3520,7 +3513,7 @@ class Gradatone {
         }
 
         // Auto-stop: touchend 欠落時の安全弁（通常は stopTouchSound で解除）
-        const autoStopTimeout = setTimeout(() => {
+        const autoStopTimeout = layer.instrument === 'piano' ? null : setTimeout(() => {
             if (this.activeTouches.has(touchId)) {
                 this.endTouch(
                     touchId,
@@ -3725,7 +3718,7 @@ class Gradatone {
                 osc.frequency.setTargetAtTime(freq, now, unsnapTransitionTime);
             });
         } else {
-            // Instant response during normal dragging
+            // Smooth small frequency steps on the synthesized piano to avoid zipper noise.
             touch.oscillators.forEach(({ osc, config }) => {
                 let freq = frequency;
                 if (config.octave !== undefined) {
@@ -3735,7 +3728,12 @@ class Gradatone {
                 }
 
                 osc.frequency.cancelScheduledValues(now);
-                osc.frequency.setValueAtTime(freq, now);
+                if (touch.instrumentType === 'piano') {
+                    osc.frequency.setValueAtTime(osc.frequency.value, now);
+                    osc.frequency.linearRampToValueAtTime(freq, now + 0.018);
+                } else {
+                    osc.frequency.setValueAtTime(freq, now);
+                }
             });
         }
 
