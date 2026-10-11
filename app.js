@@ -738,7 +738,7 @@ function createPianoSustainBuffer(context, sourceBuffer, frequency) {
 }
 
 function createPianoRoomReverb(context, destination) {
-    const duration = 2.4;
+    const duration = 1.5;
     const length = Math.floor(context.sampleRate * duration);
     const impulse = context.createBuffer(2, length, context.sampleRate);
     for (let channel = 0; channel < 2; channel++) {
@@ -757,7 +757,7 @@ function createPianoRoomReverb(context, destination) {
     const convolver = context.createConvolver();
     convolver.buffer = impulse;
     const wet = context.createGain();
-    wet.gain.value = 0.2;
+    wet.gain.value = 0.07;
     convolver.connect(wet);
     wet.connect(destination);
     return convolver;
@@ -2519,6 +2519,12 @@ class Gradatone {
         if (!zones.length) return;
         const midi = 69 + 12 * Math.log2(frequency / 440);
         let zone = zones.reduce((best, candidate) => Math.abs(candidate.midi - midi) < Math.abs(best.midi - midi) ? candidate : best, zones[0]);
+        const previousZone = touch.sampleSources.get(touch.selectedSampleZone)?.zone;
+        if (previousZone && !touch.sampleSources.get(touch.selectedSampleZone)?.stopped) {
+            const previousDistance = Math.abs(previousZone.midi - midi);
+            const nearestDistance = Math.abs(zone.midi - midi);
+            if (previousDistance <= nearestDistance + 0.35) zone = previousZone;
+        }
         const context = this.audioContext;
         const now = context.currentTime;
         let elapsedSamplePosition = null;
@@ -2597,25 +2603,29 @@ class Gradatone {
             if (!active.attackEnded) active.source.playbackRate.setTargetAtTime(active.playbackRateValue, now, 0.012);
             active.sustainSource.playbackRate.setTargetAtTime(active.playbackRateValue, now, 0.012);
         }
-        // Crossfade old and new zones without retriggering a sample's hammer attack.
-        touch.sampleSources.forEach((voice, name) => {
-            const selected = name === zone.name;
-            voice.gain.gain.cancelScheduledValues(now);
-            const attackLevel = frequency >= 880 ? 0.48 : 0.72;
-            voice.gain.gain.setTargetAtTime(selected ? attackLevel : 0, now, 0.012);
-            voice.sustainGain.gain.cancelScheduledValues(now);
-            voice.sustainGain.gain.setTargetAtTime(selected ? 0.65 : 0, now, 0.012);
-            if (!selected && !voice.cleanupTimer) {
-                voice.cleanupTimer = setTimeout(() => {
-                    voice.cleanupTimer = null;
-                    if (touch.sampleSources.get(name) !== voice) return;
-                    voice.stopped = true;
-                    try { voice.source.stop(); } catch (_) {}
-                    try { voice.sustainSource.stop(); } catch (_) {}
-                    touch.sampleSources.delete(name);
-                }, 70);
-            }
-        });
+        // Change zone gains only at a zone boundary; per-pointer-event rescheduling crackles on fast glissandi.
+        if (touch.selectedSampleZone !== zone.name) {
+            touch.selectedSampleZone = zone.name;
+            const attackLevel = frequency >= 880 ? 0.26 : 0.48;
+            touch.sampleSources.forEach((voice, name) => {
+                const selected = name === zone.name;
+                for (const [param, target] of [[voice.gain.gain, selected ? attackLevel : 0], [voice.sustainGain.gain, selected ? 0.65 : 0]]) {
+                    param.cancelScheduledValues(now);
+                    param.setValueAtTime(param.value, now);
+                    param.linearRampToValueAtTime(target, now + 0.035);
+                }
+                if (!selected && !voice.cleanupTimer) {
+                    voice.cleanupTimer = setTimeout(() => {
+                        voice.cleanupTimer = null;
+                        if (touch.sampleSources.get(name) !== voice) return;
+                        voice.stopped = true;
+                        try { voice.source.stop(); } catch (_) {}
+                        try { voice.sustainSource.stop(); } catch (_) {}
+                        touch.sampleSources.delete(name);
+                    }, 45);
+                }
+            });
+        }
     }
 
     releasePianoSampleVoice(touch, releaseTime, endFrequency, hasInertia, glideTime = releaseTime, isQuickMute = false) {
