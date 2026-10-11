@@ -103,7 +103,7 @@ const INSTRUMENTS = {
             decay: 1.2,       // Longer decay for piano sustain
             sustain: 0.45,    // Keep the sampled piano body audible while the touch is held
             holdTime: 5.0,
-            release: 0.5      // Restore the original piano key-release time
+            release: 0.25     // Short, controlled key release
         }
     },
     organ: {
@@ -2601,7 +2601,8 @@ class Gradatone {
         touch.sampleSources.forEach((voice, name) => {
             const selected = name === zone.name;
             voice.gain.gain.cancelScheduledValues(now);
-            voice.gain.gain.setTargetAtTime(selected ? 0.72 : 0, now, 0.012);
+            const attackLevel = frequency >= 880 ? 0.48 : 0.72;
+            voice.gain.gain.setTargetAtTime(selected ? attackLevel : 0, now, 0.012);
             voice.sustainGain.gain.cancelScheduledValues(now);
             voice.sustainGain.gain.setTargetAtTime(selected ? 0.65 : 0, now, 0.012);
             if (!selected && !voice.cleanupTimer) {
